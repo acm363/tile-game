@@ -20,6 +20,8 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -85,6 +87,12 @@ public final class GameWindow extends JFrame implements GameListener {
         add(side, BorderLayout.EAST);
         add(bottom, BorderLayout.SOUTH);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent event) {
+                autoPlay.stop();
+            }
+        });
         switchTo(DEFAULT_LANGUAGE);
         pack();
         setLocationRelativeTo(null);
