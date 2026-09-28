@@ -2,7 +2,6 @@ package boardgame.ui.swing;
 
 import boardgame.board.Board;
 import boardgame.board.Position;
-import boardgame.board.Terrain;
 import boardgame.ui.Labels;
 import boardgame.unit.Army;
 import boardgame.unit.Unit;
@@ -17,20 +16,12 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.Optional;
 
 final class BoardPanel extends JPanel {
 
     private static final int PREFERRED_CELL = 56;
     private static final Color GRID = new Color(0x14125C);
-    private static final Map<Terrain, Color> TERRAIN_COLORS = new EnumMap<>(Map.of(
-            Terrain.OCEAN, new Color(0x23209A),
-            Terrain.PLAIN, new Color(0x33D445),
-            Terrain.FOREST, new Color(0x19772A),
-            Terrain.DESERT, new Color(0xE8E62F),
-            Terrain.MOUNTAIN, new Color(0x976614)));
 
     private final Board board;
     private final PlayerColors colors;
@@ -54,7 +45,7 @@ final class BoardPanel extends JPanel {
         for (Position position : board.positions()) {
             int x = originX(cell) + position.col() * cell;
             int y = originY(cell) + position.row() * cell;
-            g.setColor(TERRAIN_COLORS.get(board.terrain(position)));
+            g.setColor(TerrainColors.of(board.terrain(position)));
             g.fillRect(x, y, cell, cell);
             g.setColor(GRID);
             g.drawRect(x, y, cell, cell);

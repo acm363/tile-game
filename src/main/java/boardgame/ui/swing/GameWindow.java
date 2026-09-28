@@ -56,6 +56,9 @@ public final class GameWindow extends JFrame implements GameListener {
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT));
         controls.add(stepButton);
         controls.add(autoPlayButton);
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.add(controls, BorderLayout.WEST);
+        bottom.add(new TerrainLegend(), BorderLayout.EAST);
 
         JPanel side = new JPanel(new BorderLayout());
         side.add(playersPanel, BorderLayout.NORTH);
@@ -64,7 +67,7 @@ public final class GameWindow extends JFrame implements GameListener {
         setLayout(new BorderLayout());
         add(boardPanel, BorderLayout.CENTER);
         add(side, BorderLayout.EAST);
-        add(controls, BorderLayout.SOUTH);
+        add(bottom, BorderLayout.SOUTH);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         pack();
         setLocationRelativeTo(null);
