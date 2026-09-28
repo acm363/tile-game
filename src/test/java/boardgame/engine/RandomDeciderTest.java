@@ -19,23 +19,34 @@ class RandomDeciderTest {
 
     @Test
     void aLoneOptionIsAlwaysChosen() {
+        // Given.
         RandomDecider decider = new RandomDecider(new Random(1));
 
-        assertEquals(new Pass(), decider.choose(alice, List.of(new Pass())));
+        // When.
+        Action chosen = decider.choose(alice, List.of(new Pass()));
+
+        // Then.
+        assertEquals(new Pass(), chosen);
     }
 
     @Test
     void onlyLegalActionsAreChosen() {
+        // Given.
         List<Action> legal = List.of(new Pass(), new Deploy(new Position(0, 0), 1), new Deploy(new Position(0, 1), 2));
         RandomDecider decider = new RandomDecider(new Random(2));
 
         for (int draw = 0; draw < DRAWS; draw++) {
-            assertTrue(legal.contains(decider.choose(alice, legal)));
+            // When.
+            Action chosen = decider.choose(alice, legal);
+
+            // Then.
+            assertTrue(legal.contains(chosen));
         }
     }
 
     @Test
     void eachKindOfActionIsEquallyLikelyWhateverTheNumberOfVariants() {
+        // Given.
         List<Action> legal = new ArrayList<>();
         legal.add(new Pass());
         for (int col = 0; col < 99; col++) {
@@ -43,6 +54,7 @@ class RandomDeciderTest {
         }
         RandomDecider decider = new RandomDecider(new Random(3));
 
+        // When.
         long passes = 0;
         for (int draw = 0; draw < DRAWS; draw++) {
             if (decider.choose(alice, legal) instanceof Pass) {
@@ -50,6 +62,7 @@ class RandomDeciderTest {
             }
         }
 
+        // Then.
         assertTrue(passes > DRAWS * 0.45 && passes < DRAWS * 0.55, passes + " passes out of " + DRAWS);
     }
 }

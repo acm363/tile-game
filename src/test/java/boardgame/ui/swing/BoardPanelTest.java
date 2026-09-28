@@ -33,10 +33,13 @@ class BoardPanelTest {
 
     @Test
     void tilesArePaintedWithTheirTerrainColourAndUnitsWithTheirOwnersColour() {
+        // Given.
         board.place(new Position(0, 1), new Army(alice, 2));
 
+        // When.
         BufferedImage image = render();
 
+        // Then.
         assertEquals(new Color(0x23209A).getRGB(), image.getRGB(10, 10));
         assertEquals(new Color(0xE8E62F).getRGB(), image.getRGB(10, CELL + 10));
         assertEquals(new Color(0x33D445).getRGB(), image.getRGB(CELL + 3, 3));
@@ -45,17 +48,28 @@ class BoardPanelTest {
 
     @Test
     void theTooltipDescribesTheHoveredTileAndItsOccupant() {
+        // Given.
         board.place(new Position(0, 1), new Army(alice, 2));
 
-        assertEquals("plaine (0, 1) — Alice, 2 guerrier(s), 0 or", tooltipAt(CELL + 20, 20));
-        assertEquals("désert (1, 0)", tooltipAt(20, CELL + 20));
+        // When.
+        String occupied = tooltipAt(CELL + 20, 20);
+        String free = tooltipAt(20, CELL + 20);
+
+        // Then.
+        assertEquals("plaine (0, 1) — Alice, 2 guerrier(s), 0 or", occupied);
+        assertEquals("désert (1, 0)", free);
     }
 
     @Test
     void thereIsNoTooltipOutsideTheBoard() {
+        // Given.
         panel.setSize(4 * CELL, 2 * CELL);
 
-        assertNull(tooltipAt(5, 5));
+        // When.
+        String tooltip = tooltipAt(5, 5);
+
+        // Then.
+        assertNull(tooltip);
     }
 
     private BufferedImage render() {

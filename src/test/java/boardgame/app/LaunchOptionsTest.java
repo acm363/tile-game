@@ -17,8 +17,13 @@ class LaunchOptionsTest {
 
     @Test
     void defaultsToATenByTenConsoleGameWithTheRulesOwnRoundCount() {
-        LaunchOptions options = LaunchOptions.parse(new String[]{"guerre", "Alice", "Bob"});
+        // Given.
+        String[] args = {"guerre", "Alice", "Bob"};
 
+        // When.
+        LaunchOptions options = LaunchOptions.parse(args);
+
+        // Then.
         assertEquals(GameKind.WAR, options.kind());
         assertEquals(List.of("Alice", "Bob"), options.playerNames());
         assertEquals(10, options.rows());
@@ -30,9 +35,13 @@ class LaunchOptionsTest {
 
     @Test
     void optionsCanBeMixedWithPlayerNames() {
-        LaunchOptions options = LaunchOptions.parse(new String[]{
-                "agricole", "Alice", "--rows", "4", "Bob", "--cols", "7", "--rounds", "3", "--seed", "-9", "--gui"});
+        // Given.
+        String[] args = {"agricole", "Alice", "--rows", "4", "Bob", "--cols", "7", "--rounds", "3", "--seed", "-9", "--gui"};
 
+        // When.
+        LaunchOptions options = LaunchOptions.parse(args);
+
+        // Then.
         assertEquals(GameKind.AGRICULTURE, options.kind());
         assertEquals(List.of("Alice", "Bob"), options.playerNames());
         assertEquals(4, options.rows());
@@ -44,29 +53,34 @@ class LaunchOptionsTest {
 
     @Test
     void aGameMustBeNamed() {
+        // Then.
         assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(new String[]{}));
         assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(new String[]{"chess", "Alice"}));
     }
 
     @Test
     void atLeastOnePlayerIsRequired() {
+        // Then.
         assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(new String[]{"guerre", "--gui"}));
     }
 
     @Test
     void unknownOptionsAreRejected() {
+        // Then.
         assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[]{"guerre", "Alice", "--speed", "2"}));
     }
 
     @Test
     void anOptionWithoutItsValueIsRejected() {
+        // Then.
         assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(new String[]{"guerre", "Alice", "--rows"}));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-3", "ten"})
     void sizesAndRoundsMustBePositiveIntegers(String value) {
+        // Then.
         assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[]{"guerre", "Alice", "--rows", value}));
         assertThrows(IllegalArgumentException.class,
