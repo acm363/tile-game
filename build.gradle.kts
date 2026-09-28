@@ -33,4 +33,5 @@ tasks.jar {
 
 tasks.test {
     useJUnitPlatform()
+    systemProperty("java.awt.headless", "true")
 }

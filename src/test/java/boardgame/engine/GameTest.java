@@ -6,6 +6,7 @@ import boardgame.board.BoardGenerator;
 import boardgame.board.Boards;
 import boardgame.board.Position;
 import boardgame.player.Player;
+import boardgame.unit.Worker;
 import boardgame.ui.EventFormatter;
 import boardgame.war.WarRules;
 import org.junit.jupiter.api.Test;
@@ -84,6 +85,52 @@ class GameTest {
 
         assertTrue(game.isOver());
         assertThrows(IllegalStateException.class, game::playTurn);
+    }
+
+    @Test
+    void playersTakeTheirTurnsInTheGivenOrder() {
+        Player carol = new Player("Carol");
+        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(bob, carol, alice), 2, ALWAYS_PASS);
+        game.addListener(events::add);
+
+        game.play();
+
+        List<Player> turns = events.stream().filter(TurnStarted.class::isInstance)
+                .map(event -> ((TurnStarted) event).player()).toList();
+        assertEquals(List.of(bob, carol, alice, bob, carol, alice), turns);
+    }
+
+    @Test
+    void onlyThePlayerWhoseTurnItIsHarvests() {
+        Board board = Boards.parse("PPP~~~~~~");
+        board.place(new Position(0, 0), new Worker(alice));
+        board.place(new Position(0, 1), new Worker(bob));
+        Game game = new Game(new AgricultureRules(), board, List.of(alice, bob), 1, ALWAYS_PASS);
+
+        game.playTurn();
+
+        assertEquals(1, alice.resources().size());
+        assertTrue(bob.resources().isEmpty());
+    }
+
+    @Test
+    void aGameNeedsPlayersAndRounds() {
+        Board board = Boards.parse("PP~~~~");
+
+        assertThrows(IllegalArgumentException.class, () -> new Game(new WarRules(), board, List.of(), 1, ALWAYS_PASS));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Game(new WarRules(), board, List.of(alice), 0, ALWAYS_PASS));
+    }
+
+    @Test
+    void theResultIsOnlyAvailableOnceTheGameIsOver() {
+        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(alice, bob), 1, ALWAYS_PASS);
+
+        game.playTurn();
+        assertTrue(game.result().isEmpty());
+        game.playTurn();
+
+        assertTrue(game.result().isPresent());
     }
 
     @Test

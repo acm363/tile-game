@@ -9,6 +9,7 @@ import boardgame.engine.Exchange;
 import boardgame.engine.GameContext;
 import boardgame.engine.GameEvent;
 import boardgame.engine.Pass;
+import boardgame.engine.Passed;
 import boardgame.player.Player;
 import boardgame.unit.Worker;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AgricultureRulesTest {
@@ -133,6 +135,59 @@ class AgricultureRulesTest {
         assertEquals(1, paid.gold());
         assertEquals(2, alice.gold());
         assertTrue(events.contains(new WorkerDismissed(alice, new Position(0, 0), 5)));
+    }
+
+    @Test
+    void sellingMoreThanTheHeldQuantityIsRejected() {
+        GameContext context = on(Boards.parse("PP~~~~"));
+        alice.addResource(Resource.ROCK, 1);
+
+        assertThrows(IllegalStateException.class, () -> rules.apply(new Exchange(Resource.ROCK, 2), alice, context));
+        assertEquals(15, alice.gold());
+    }
+
+    @Test
+    void occupiedTilesCannotBeDeployedOn() {
+        GameContext context = on(Boards.parse("PP~~~~"));
+        put(context, bob, new Position(0, 0));
+
+        List<Deploy> deploys = rules.legalActions(alice, context.board()).stream()
+                .filter(Deploy.class::isInstance).map(Deploy.class::cast).toList();
+
+        assertEquals(List.of(new Deploy(new Position(0, 1), 1)), deploys);
+    }
+
+    @Test
+    void passingWithoutTerritoryEarnsNothing() {
+        GameContext context = on(Boards.parse("PP~~~~"));
+
+        rules.apply(new Pass(), alice, context);
+
+        assertEquals(15, alice.gold());
+        assertTrue(events.contains(new Passed(alice, 0)));
+    }
+
+    @Test
+    void harvestedResourcesCanOnlyBeSoldOnALaterTurn() {
+        GameContext context = on(Boards.parse("MP~~~~"));
+        put(context, alice, new Position(0, 0));
+        assertTrue(rules.legalActions(alice, context.board()).stream().noneMatch(Exchange.class::isInstance));
+
+        rules.harvest(alice, context);
+
+        assertTrue(rules.legalActions(alice, context.board()).contains(new Exchange(Resource.ROCK, 1)));
+    }
+
+    @Test
+    void aDismissedWorkerTakesItsEarningsOutOfTheScore() {
+        GameContext context = on(Boards.parse("MP~~~~"));
+        put(context, alice, new Position(0, 0)).addGold(5);
+        put(context, alice, new Position(0, 1)).addGold(2);
+        alice.spendGold(15);
+
+        rules.upkeep(alice, context);
+
+        assertEquals(0, rules.score(alice, context.board()));
     }
 
     @Test

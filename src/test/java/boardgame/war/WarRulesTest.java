@@ -6,6 +6,7 @@ import boardgame.board.Position;
 import boardgame.board.Resource;
 import boardgame.engine.Action;
 import boardgame.engine.Deploy;
+import boardgame.engine.Exchange;
 import boardgame.engine.GameContext;
 import boardgame.engine.GameEvent;
 import boardgame.engine.Pass;
@@ -265,6 +266,78 @@ class WarRulesTest {
         }
 
         assertEquals(10 + 5, rules.score(alice, context.board()));
+    }
+
+    @Test
+    void onlyFreeLandTilesCanBeDeployedOn() {
+        GameContext context = on(Boards.parse("P~P~~~"));
+        put(context, bob, 1, LEFT);
+
+        List<Position> targets = rules.legalActions(alice, context.board()).stream()
+                .filter(Deploy.class::isInstance).map(action -> ((Deploy) action).position()).distinct().toList();
+
+        assertEquals(List.of(new Position(0, 2)), targets);
+    }
+
+    @Test
+    void aDeploymentConfrontsAllFourNeighbours() {
+        GameContext context = on(Boards.parse("~P~", "PPP", "~P~", "~~~", "~~~"));
+        Army north = put(context, bob, 2, new Position(0, 1));
+        Army west = put(context, bob, 1, new Position(1, 0));
+        Army east = put(context, alice, 1, new Position(1, 2));
+        Army south = put(context, bob, 5, new Position(2, 1));
+
+        Army deployed = deploy(context, alice, 4, new Position(1, 1));
+
+        assertEquals(1, north.size());
+        assertSame(alice, west.owner());
+        assertEquals(2, east.size());
+        assertEquals(5, south.size());
+        assertEquals(2 + 1, deployed.gold());
+    }
+
+    @Test
+    void aRalliedArmyDoesNotTriggerAnotherConfrontation() {
+        GameContext context = on(Boards.parse("PPP~~~"));
+        Army rallied = put(context, bob, 1, new Position(0, 1));
+        Army beyond = put(context, alice, 1, new Position(0, 0));
+
+        deploy(context, alice, 2, new Position(0, 2));
+
+        assertSame(alice, rallied.owner());
+        assertEquals(1, beyond.size());
+    }
+
+    @Test
+    void nothingIsConvertedWhenNoFoodCropWasHarvested() {
+        GameContext context = on(Boards.parse("MP~~~~"));
+        put(context, alice, 1, LEFT);
+
+        rules.harvest(alice, context);
+        rules.upkeep(alice, context);
+
+        assertTrue(events.stream().noneMatch(FoodProduced.class::isInstance));
+        assertEquals(9, rules.food(alice));
+    }
+
+    @Test
+    void upkeepOnlyFeedsTheCurrentPlayersArmies() {
+        GameContext context = on(Boards.parse("PP~~~~"));
+        put(context, alice, 5, LEFT);
+        put(context, bob, 5, RIGHT);
+
+        rules.upkeep(alice, context);
+
+        assertEquals(5, rules.food(alice));
+        assertEquals(10, rules.food(bob));
+    }
+
+    @Test
+    void rulesRefuseActionsTheyDoNotKnow() {
+        GameContext context = on(Boards.parse("PP~~~~"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> rules.apply(new Exchange(Resource.WOOD, 1), alice, context));
     }
 
     private static int maxDeployableSize(List<Action> actions, Position position) {
