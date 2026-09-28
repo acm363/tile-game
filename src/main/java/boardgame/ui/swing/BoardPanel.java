@@ -1,5 +1,7 @@
 package boardgame.ui.swing;
 
+import boardgame.agriculture.WorkerDeployed;
+import boardgame.agriculture.WorkerDismissed;
 import boardgame.board.Board;
 import boardgame.board.Position;
 import boardgame.engine.Deploy;
@@ -8,11 +10,14 @@ import boardgame.player.Player;
 import boardgame.ui.Labels;
 import boardgame.unit.Army;
 import boardgame.unit.Unit;
+import boardgame.war.ArmyDeployed;
 import boardgame.war.ArmyRallied;
 import boardgame.war.ArmyReinforced;
+import boardgame.war.ArmyStarved;
 import boardgame.war.ArmyWeakened;
 
 import javax.swing.JPanel;
+import javax.swing.Timer;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -26,6 +31,7 @@ import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -38,6 +44,7 @@ final class BoardPanel extends JPanel {
     static final Color RALLIED = new Color(0xFFD700);
     static final Color REINFORCED = new Color(0x7CFC00);
     private static final int GHOST_ALPHA = 90;
+    private static final int ANIMATION_FRAME_MS = 40;
 
     private final Board board;
     private final PlayerColors colors;
@@ -51,6 +58,8 @@ final class BoardPanel extends JPanel {
     private Deploy previewedDeploy;
     private Player previewedOwner;
     private List<GameEvent> previewedEffects = List.of();
+    private final TileAnimations animations = new TileAnimations(new Random());
+    private final Timer animationTimer = new Timer(ANIMATION_FRAME_MS, event -> tickAnimations());
 
     BoardPanel(Board board, PlayerColors colors, Labels labels) {
         this.board = board;
@@ -84,6 +93,37 @@ final class BoardPanel extends JPanel {
             hovered = position;
             onTileHovered.accept(position);
         }
+    }
+
+    void animate(GameEvent event) {
+        switch (event) {
+            case ArmyDeployed e -> animations.flash(e.position(), HIGHLIGHT);
+            case WorkerDeployed e -> animations.flash(e.position(), HIGHLIGHT);
+            case ArmyWeakened e -> animations.flash(e.position(), WEAKENED);
+            case ArmyRallied e -> animations.flash(e.position(), RALLIED);
+            case ArmyReinforced e -> animations.flash(e.position(), REINFORCED);
+            case ArmyStarved e -> animations.crumble(e.position(), colors.of(e.owner()));
+            case WorkerDismissed e -> animations.crumble(e.position(), colors.of(e.owner()));
+            default -> {
+                return;
+            }
+        }
+        if (!animationTimer.isRunning()) {
+            animationTimer.start();
+        }
+        repaint();
+    }
+
+    boolean isAnimating() {
+        return animations.isRunning();
+    }
+
+    void tickAnimations() {
+        animations.tick();
+        if (!animations.isRunning()) {
+            animationTimer.stop();
+        }
+        repaint();
     }
 
     void setOnTileHovered(Consumer<Optional<Position>> listener) {
@@ -139,6 +179,7 @@ final class BoardPanel extends JPanel {
                 paintHighlight(g, x, y, cell);
             }
         }
+        animations.paint(g, originX(cell), originY(cell), cell);
         paintPreview(g, cell);
         g.dispose();
     }

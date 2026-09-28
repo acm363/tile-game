@@ -4,10 +4,12 @@ import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
 import boardgame.engine.Deploy;
+import boardgame.engine.Passed;
 import boardgame.player.Player;
 import boardgame.ui.Labels;
 import boardgame.ui.Language;
 import boardgame.unit.Army;
+import boardgame.war.ArmyStarved;
 import boardgame.war.ArmyWeakened;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,9 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoardPanelTest {
 
@@ -148,6 +152,48 @@ class BoardPanelTest {
 
         // Then.
         assertEquals(List.of(Optional.of(new Position(0, 0)), Optional.empty()), hovered);
+    }
+
+    @Test
+    void aWeakenedArmyFlashesThenTheTileReturnsToNormal() {
+        // Given.
+        int plain = new Color(0x33D445).getRGB();
+
+        // When.
+        panel.animate(new ArmyWeakened(alice, new Position(0, 1), 1));
+        int flashing = render().getRGB(CELL + 3, 3);
+        for (int frame = 0; frame < TileAnimations.FLASH_FRAMES; frame++) {
+            panel.tickAnimations();
+        }
+
+        // Then.
+        assertNotEquals(plain, flashing);
+        assertFalse(panel.isAnimating());
+        assertEquals(plain, render().getRGB(CELL + 3, 3));
+    }
+
+    @Test
+    void aStarvedArmyCrumblesToTheBottomOfItsTile() {
+        // When.
+        panel.animate(new ArmyStarved(alice, new Position(0, 1), 3));
+        for (int frame = 0; frame < TileAnimations.CRUMBLE_FRAMES / 2; frame++) {
+            panel.tickAnimations();
+        }
+        BufferedImage midway = render();
+
+        // Then.
+        assertTrue(panel.isAnimating());
+        assertEquals(new Color(0x33D445).getRGB(), midway.getRGB(CELL + CELL / 2, CELL / 4));
+        assertNotEquals(new Color(0x33D445).getRGB(), midway.getRGB(CELL + CELL / 2, CELL - 2));
+    }
+
+    @Test
+    void eventsWithoutAVisualEffectDoNotAnimate() {
+        // When.
+        panel.animate(new Passed(alice, 0));
+
+        // Then.
+        assertFalse(panel.isAnimating());
     }
 
     @Test

@@ -162,6 +162,7 @@ public final class GameWindow extends JFrame implements GameListener {
         history.add(event);
         log.append(formatter.format(event) + "\n");
         log.setCaretPosition(log.getDocument().getLength());
+        boardPanel.animate(event);
         boardPanel.repaint();
         playersPanel.refresh();
     }
