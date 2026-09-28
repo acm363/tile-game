@@ -57,6 +57,15 @@ public final class Game {
         return Optional.ofNullable(result);
     }
 
+    public Player currentPlayer() {
+        requireNotOver();
+        return context.players().get(turnIndex);
+    }
+
+    public List<Action> legalActions() {
+        return rules.legalActions(currentPlayer(), board());
+    }
+
     public GameResult play() {
         while (!isOver()) {
             playTurn();
@@ -65,16 +74,13 @@ public final class Game {
     }
 
     public void playTurn() {
-        if (isOver()) {
-            throw new IllegalStateException("The game is over");
-        }
-        Player player = context.players().get(turnIndex);
+        Player player = currentPlayer();
         if (turnIndex == 0) {
             context.emit(new RoundStarted(round));
         }
         context.emit(new TurnStarted(player));
 
-        List<Action> legalActions = rules.legalActions(player, board());
+        List<Action> legalActions = legalActions();
         Action action = decider.choose(player, legalActions);
         if (!legalActions.contains(action)) {
             throw new IllegalStateException(player + " chose an illegal action: " + action);
@@ -95,6 +101,12 @@ public final class Game {
             } else {
                 round++;
             }
+        }
+    }
+
+    private void requireNotOver() {
+        if (isOver()) {
+            throw new IllegalStateException("The game is over");
         }
     }
 

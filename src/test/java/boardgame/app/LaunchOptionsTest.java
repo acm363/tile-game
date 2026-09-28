@@ -31,6 +31,7 @@ class LaunchOptionsTest {
         assertEquals(OptionalInt.empty(), options.rounds());
         assertEquals(OptionalLong.empty(), options.seed());
         assertFalse(options.gui());
+        assertTrue(options.humanNames().isEmpty());
     }
 
     @Test
@@ -49,6 +50,32 @@ class LaunchOptionsTest {
         assertEquals(OptionalInt.of(3), options.rounds());
         assertEquals(OptionalLong.of(-9), options.seed());
         assertTrue(options.gui());
+    }
+
+    @Test
+    void humanPlayersAreNamedWithTheHumanOption() {
+        // Given.
+        String[] args = {"guerre", "Alice", "Bob", "--gui", "--human", "Bob"};
+
+        // When.
+        LaunchOptions options = LaunchOptions.parse(args);
+
+        // Then.
+        assertEquals(List.of("Bob"), options.humanNames());
+    }
+
+    @Test
+    void aHumanMustBeOneOfThePlayers() {
+        // Then.
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[]{"guerre", "Alice", "--gui", "--human", "Carol"}));
+    }
+
+    @Test
+    void humansCanOnlyPlayInTheWindow() {
+        // Then.
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[]{"guerre", "Alice", "--human", "Alice"}));
     }
 
     @Test

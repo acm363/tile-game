@@ -6,7 +6,7 @@ then pays upkeep for their characters.
 
 The goal is a model that makes adding a new game cheap: the board, players, turn loop and events are shared, and a game
 only defines its own rules. Two games are included — a war game and a farming game — playable in the console or in a
-Swing window. Player decisions are random for now; the engine is ready for human players.
+Swing window. Players are bots making random moves, unless named with `--human` to be played with the mouse.
 
 ## Requirements
 
@@ -26,6 +26,7 @@ Compiles, runs the test suite and produces `build/libs/tile-game.jar`.
 java -jar build/libs/tile-game.jar guerre Alice Bob
 java -jar build/libs/tile-game.jar agricole Alice Bob Carol --gui
 ./gradlew run --args="guerre Alice Bob --gui --seed 42"
+./gradlew run --args="guerre Alice Bob --gui --human Alice"
 ```
 
 The first argument picks the game (`guerre` for war, `agricole` for farming), the other plain arguments are player names
@@ -34,6 +35,7 @@ The first argument picks the game (`guerre` for war, `agricole` for farming), th
 | Option         | Effect                                                         |
 |----------------|----------------------------------------------------------------|
 | `--gui`        | shows the board in a Swing window instead of the console       |
+| `--human <n>`  | player `n` plays with the mouse (repeatable, needs `--gui`)    |
 | `--rows <n>`   | board rows (default 10)                                        |
 | `--cols <n>`   | board columns (default 10)                                     |
 | `--rounds <n>` | number of rounds (default 10 for war, 6 for farming)           |
@@ -111,10 +113,12 @@ Implement `GameRules`: starting stock, legal actions, how an action applies, upk
 per territory comes for free and can be overridden. Emit your own `GameEvent` records for what happens, then add a
 `GameKind` entry in `boardgame.app` to launch it.
 
-### Adding a human player
+### Human players
 
-Implement `Decider`: it receives the legal actions and returns the chosen one — from the keyboard, or from clicks in
-the Swing window. `RandomDecider` is the current implementation.
+`HumanDecider` returns the action submitted by the window. Everything runs on the Swing thread: on a human's turn the
+window asks `Game` for the upcoming player's legal actions, highlights the tiles where the selected army size can be
+deployed, and only calls `playTurn()` once a tile, **Pass** or **Sell** is clicked. Bots keep playing through
+**Next turn** and **Auto play**, which wait whenever a human is to move.
 
 ## Rule interpretations
 

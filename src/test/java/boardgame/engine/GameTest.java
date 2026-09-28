@@ -163,6 +163,32 @@ class GameTest {
     }
 
     @Test
+    void theUpcomingTurnIsExposedBeforeItIsPlayed() {
+        // Given.
+        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(alice, bob), 1, ALWAYS_PASS);
+
+        // When.
+        game.playTurn();
+
+        // Then.
+        assertEquals(bob, game.currentPlayer());
+        assertEquals(game.rules().legalActions(bob, game.board()), game.legalActions());
+    }
+
+    @Test
+    void theUpcomingTurnIsUnavailableOnceTheGameIsOver() {
+        // Given.
+        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(alice), 1, ALWAYS_PASS);
+
+        // When.
+        game.play();
+
+        // Then.
+        assertThrows(IllegalStateException.class, game::currentPlayer);
+        assertThrows(IllegalStateException.class, game::legalActions);
+    }
+
+    @Test
     void theSameSeedReplaysTheSameGame() {
         // When.
         List<String> first = replay(42);

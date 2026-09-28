@@ -15,17 +15,24 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
 
 final class BoardPanel extends JPanel {
 
     private static final int PREFERRED_CELL = 56;
     private static final Color GRID = new Color(0x14125C);
+    private static final Color HIGHLIGHT = Color.WHITE;
 
     private final Board board;
     private final PlayerColors colors;
     private Labels labels;
+    private Set<Position> highlighted = Set.of();
+    private Consumer<Position> onTileClicked = position -> {
+    };
 
     BoardPanel(Board board, PlayerColors colors, Labels labels) {
         this.board = board;
@@ -34,6 +41,21 @@ final class BoardPanel extends JPanel {
         setPreferredSize(new Dimension(board.cols() * PREFERRED_CELL, board.rows() * PREFERRED_CELL));
         setBackground(GRID);
         setToolTipText("");
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                positionAt(event.getX(), event.getY()).ifPresent(onTileClicked);
+            }
+        });
+    }
+
+    void setHighlighted(Set<Position> positions) {
+        highlighted = Set.copyOf(positions);
+        repaint();
+    }
+
+    void setOnTileClicked(Consumer<Position> listener) {
+        onTileClicked = listener;
     }
 
     void setLabels(Labels labels) {
@@ -56,8 +78,18 @@ final class BoardPanel extends JPanel {
             g.setColor(GRID);
             g.drawRect(x, y, cell, cell);
             board.occupant(position).ifPresent(unit -> paintUnit(g, unit, x, y, cell));
+            if (highlighted.contains(position)) {
+                paintHighlight(g, x, y, cell);
+            }
         }
         g.dispose();
+    }
+
+    private void paintHighlight(Graphics2D g, int x, int y, int cell) {
+        int width = Math.max(2, cell / 14);
+        g.setColor(HIGHLIGHT);
+        g.setStroke(new BasicStroke(width));
+        g.drawRect(x + width, y + width, cell - 2 * width, cell - 2 * width);
     }
 
     private void paintUnit(Graphics2D g, Unit unit, int x, int y, int cell) {

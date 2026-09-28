@@ -3,6 +3,8 @@ package boardgame.ui;
 import boardgame.board.Position;
 import boardgame.board.Resource;
 import boardgame.board.Terrain;
+import boardgame.engine.Action;
+import boardgame.engine.Exchange;
 
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -43,6 +45,12 @@ public final class Labels {
 
     public String position(Position position) {
         return "(" + position.row() + ", " + position.col() + ")";
+    }
+
+    public String action(Action action) {
+        return action instanceof Exchange exchange
+                ? text("action.exchange", exchange.quantity(), resource(exchange.resource()))
+                : action.toString();
     }
 
     public String resources(Map<Resource, Integer> resources) {

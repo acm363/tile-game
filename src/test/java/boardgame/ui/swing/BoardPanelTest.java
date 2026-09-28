@@ -14,7 +14,9 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -72,6 +74,32 @@ class BoardPanelTest {
 
         // Then.
         assertEquals("plain (0, 1) — Alice, 2 warrior(s), 0 gold", tooltipAt(CELL + 20, 20));
+    }
+
+    @Test
+    void highlightedTilesAreOutlined() {
+        // Given.
+        panel.setHighlighted(Set.of(new Position(1, 0)));
+
+        // When.
+        BufferedImage image = render();
+
+        // Then.
+        assertEquals(Color.WHITE.getRGB(), image.getRGB(CELL / 2, CELL + 4));
+        assertEquals(new Color(0xE8E62F).getRGB(), image.getRGB(CELL / 2, CELL + CELL / 2));
+    }
+
+    @Test
+    void clickingATileReportsItsPosition() {
+        // Given.
+        List<Position> clicked = new ArrayList<>();
+        panel.setOnTileClicked(clicked::add);
+
+        // When.
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, 0, 0, CELL + 20, CELL + 20, 1, false));
+
+        // Then.
+        assertEquals(List.of(new Position(1, 1)), clicked);
     }
 
     @Test
