@@ -7,6 +7,7 @@ import boardgame.board.Terrain;
 import boardgame.engine.Action;
 import boardgame.engine.Deploy;
 import boardgame.engine.GameContext;
+import boardgame.engine.GameEvent;
 import boardgame.engine.GameRules;
 import boardgame.engine.Pass;
 import boardgame.engine.Passed;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class WarRules implements GameRules {
 
@@ -80,40 +82,67 @@ public final class WarRules implements GameRules {
         if (size > maxSize(board.terrain(position)) || size > warriors(player)) {
             throw new IllegalArgumentException("Cannot deploy " + size + " warriors on " + position);
         }
+        List<GameEvent> confrontations = confrontations(player, position, size, board);
         Army army = new Army(player, size);
         board.place(position, army);
         supplies(player).warriors -= size;
         context.emit(new ArmyDeployed(player, position, board.terrain(position), size));
 
-        for (Position neighbour : board.neighbours(position)) {
-            if (board.occupant(neighbour).orElse(null) instanceof Army other) {
-                confront(army, position, other, neighbour, context);
+        for (GameEvent confrontation : confrontations) {
+            switch (confrontation) {
+                case ArmyRallied rallied -> {
+                    armyAt(board, rallied.position()).changeOwner(player);
+                    army.addGold(CAPTURE_REWARD);
+                }
+                case ArmyWeakened weakened -> armyAt(board, weakened.position()).setSize(weakened.size());
+                case ArmyReinforced reinforced -> {
+                    armyAt(board, reinforced.position()).setSize(reinforced.size());
+                    army.addGold(REINFORCEMENT_REWARD);
+                }
+                default -> throw new IllegalStateException("Unexpected confrontation: " + confrontation);
             }
+            context.emit(confrontation);
         }
     }
 
-    private void confront(Army deployed, Position deployedAt, Army other, Position otherAt, GameContext context) {
-        Board board = context.board();
-        if (other.owner() != deployed.owner()) {
-            if (strengthAgainstEnemy(other, board.terrain(otherAt)) < strengthAgainstEnemy(deployed, board.terrain(deployedAt))) {
-                int halved = other.size() / 2;
-                if (halved < Army.MIN_SIZE) {
-                    Player previousOwner = other.owner();
-                    other.changeOwner(deployed.owner());
-                    deployed.addGold(CAPTURE_REWARD);
-                    context.emit(new ArmyRallied(previousOwner, deployed.owner(), otherAt));
-                } else {
-                    other.setSize(halved);
-                    context.emit(new ArmyWeakened(other.owner(), otherAt, halved));
-                }
+    @Override
+    public List<GameEvent> preview(Action action, Player player, Board board) {
+        return action instanceof Deploy deploy
+                ? confrontations(player, deploy.position(), deploy.size(), board)
+                : List.of();
+    }
+
+    private List<GameEvent> confrontations(Player player, Position position, int size, Board board) {
+        int strength = strength(size, board.terrain(position));
+        List<GameEvent> confrontations = new ArrayList<>();
+        for (Position neighbour : board.neighbours(position)) {
+            if (board.occupant(neighbour).orElse(null) instanceof Army other) {
+                confront(player, size, strength, other, neighbour, board).ifPresent(confrontations::add);
             }
-        } else if (other.size() < deployed.size()) {
-            if (other.size() < maxSize(board.terrain(otherAt))) {
-                other.setSize(other.size() + 1);
-            }
-            deployed.addGold(REINFORCEMENT_REWARD);
-            context.emit(new ArmyReinforced(other.owner(), otherAt, other.size()));
         }
+        return confrontations;
+    }
+
+    private Optional<GameEvent> confront(Player player, int size, int strength, Army other, Position otherAt,
+                                         Board board) {
+        Terrain otherTerrain = board.terrain(otherAt);
+        if (other.owner() != player) {
+            if (strength(other.size(), otherTerrain) >= strength) {
+                return Optional.empty();
+            }
+            int halved = other.size() / 2;
+            return Optional.of(halved < Army.MIN_SIZE
+                    ? new ArmyRallied(other.owner(), player, otherAt)
+                    : new ArmyWeakened(other.owner(), otherAt, halved));
+        }
+        if (other.size() >= size) {
+            return Optional.empty();
+        }
+        return Optional.of(new ArmyReinforced(player, otherAt, Math.min(other.size() + 1, maxSize(otherTerrain))));
+    }
+
+    private static Army armyAt(Board board, Position position) {
+        return (Army) board.occupant(position).orElseThrow();
     }
 
     @Override
@@ -171,8 +200,8 @@ public final class WarRules implements GameRules {
         };
     }
 
-    private static int strengthAgainstEnemy(Army army, Terrain terrain) {
-        return army.size() + (terrain == Terrain.MOUNTAIN ? MOUNTAIN_DEFENCE_BONUS : 0);
+    private static int strength(int size, Terrain terrain) {
+        return size + (terrain == Terrain.MOUNTAIN ? MOUNTAIN_DEFENCE_BONUS : 0);
     }
 
     private static int foodValue(Resource resource) {

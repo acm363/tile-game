@@ -23,6 +23,10 @@ public interface GameRules {
 
     int score(Player player, Board board);
 
+    default List<GameEvent> preview(Action action, Player player, Board board) {
+        return List.of();
+    }
+
     default Map<String, Integer> reserves(Player player) {
         return Map.of();
     }

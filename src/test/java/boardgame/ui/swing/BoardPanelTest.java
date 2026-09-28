@@ -3,10 +3,12 @@ package boardgame.ui.swing;
 import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
+import boardgame.engine.Deploy;
 import boardgame.player.Player;
 import boardgame.ui.Labels;
 import boardgame.ui.Language;
 import boardgame.unit.Army;
+import boardgame.war.ArmyWeakened;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,9 +18,11 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class BoardPanelTest {
@@ -100,6 +104,50 @@ class BoardPanelTest {
 
         // Then.
         assertEquals(List.of(new Position(1, 1)), clicked);
+    }
+
+    @Test
+    void thePreviewShowsTheArmyToDeployAndMarksTheAffectedNeighbours() {
+        // Given.
+        Player bob = new Player("Bob");
+        board.place(new Position(0, 1), new Army(bob, 2));
+
+        // When.
+        panel.setPreview(new Deploy(new Position(1, 0), 3), alice,
+                List.of(new ArmyWeakened(bob, new Position(0, 1), 1)));
+        BufferedImage image = render();
+
+        // Then.
+        assertEquals(BoardPanel.WEAKENED.getRGB(), image.getRGB(CELL + 2, CELL / 2));
+        assertNotEquals(new Color(0xE8E62F).getRGB(), image.getRGB(15, CELL + CELL / 2));
+    }
+
+    @Test
+    void clearingThePreviewRestoresTheBoard() {
+        // Given.
+        panel.setPreview(new Deploy(new Position(1, 0), 3), alice, List.of());
+
+        // When.
+        panel.clearPreview();
+        BufferedImage image = render();
+
+        // Then.
+        assertEquals(new Color(0xE8E62F).getRGB(), image.getRGB(15, CELL + CELL / 2));
+    }
+
+    @Test
+    void hoveringReportsEachNewTileAndLeavingTheBoard() {
+        // Given.
+        List<Optional<Position>> hovered = new ArrayList<>();
+        panel.setOnTileHovered(hovered::add);
+
+        // When.
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_MOVED, 0, 0, 10, 10, 0, false));
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_MOVED, 0, 0, 12, 12, 0, false));
+        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_EXITED, 0, 0, -1, -1, 0, false));
+
+        // Then.
+        assertEquals(List.of(Optional.of(new Position(0, 0)), Optional.empty()), hovered);
     }
 
     @Test

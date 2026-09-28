@@ -118,7 +118,9 @@ per territory comes for free and can be overridden. Emit your own `GameEvent` re
 `HumanDecider` returns the action submitted by the window. Everything runs on the Swing thread: on a human's turn the
 window asks `Game` for the upcoming player's legal actions, highlights the tiles where the selected army size can be
 deployed, and only calls `playTurn()` once a tile, **Pass** or **Sell** is clicked. Bots keep playing through
-**Next turn** and **Auto play**, which wait whenever a human is to move.
+**Next turn** and **Auto play**, which wait whenever a human is to move. Hovering a highlighted tile previews the move:
+a ghost of the army, and a mark on each neighbour it would weaken (red), rally (gold) or reinforce (green). The marks
+come from `GameRules.preview`, which the war rules compute with the same code that applies a deployment.
 
 ## Rule interpretations
 

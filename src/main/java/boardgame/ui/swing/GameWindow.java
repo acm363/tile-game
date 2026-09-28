@@ -2,10 +2,12 @@ package boardgame.ui.swing;
 
 import boardgame.board.Position;
 import boardgame.engine.Action;
+import boardgame.engine.Deploy;
 import boardgame.engine.Game;
 import boardgame.engine.GameEvent;
 import boardgame.engine.GameListener;
 import boardgame.engine.Pass;
+import boardgame.player.Player;
 import boardgame.ui.EventFormatter;
 import boardgame.ui.HumanDecider;
 import boardgame.ui.HumanTurn;
@@ -33,6 +35,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,6 +65,7 @@ public final class GameWindow extends JFrame implements GameListener {
     private Labels labels = new Labels(DEFAULT_LANGUAGE);
     private EventFormatter formatter = new EventFormatter(labels);
     private HumanTurn turn;
+    private Optional<Position> hovered = Optional.empty();
     private int preferredSize = Integer.MAX_VALUE;
     private boolean refreshingSizes;
 
@@ -94,6 +98,7 @@ public final class GameWindow extends JFrame implements GameListener {
             if (!refreshingSizes && sizeBox.getSelectedItem() instanceof Integer size) {
                 preferredSize = size;
                 boardPanel.setHighlighted(turn == null ? Set.of() : turn.deployTargets(size));
+                refreshPreview();
             }
         });
         otherBox.setRenderer(new DefaultListCellRenderer() {
@@ -110,6 +115,10 @@ public final class GameWindow extends JFrame implements GameListener {
             }
         });
         boardPanel.setOnTileClicked(this::deployAt);
+        boardPanel.setOnTileHovered(position -> {
+            hovered = position;
+            refreshPreview();
+        });
         languageBox.setSelectedItem(DEFAULT_LANGUAGE);
         languageBox.addActionListener(event -> switchTo((Language) languageBox.getSelectedItem()));
 
@@ -220,7 +229,7 @@ public final class GameWindow extends JFrame implements GameListener {
         passButton.setEnabled(humanTurn && turn.canPass());
         stepButton.setEnabled(!game.isOver() && !humanTurn);
         boardPanel.setHighlighted(humanTurn ? turn.deployTargets(selectedSize()) : Set.of());
-        status.setText(humanTurn ? labels.text("status.humanTurn", game.currentPlayer()) : " ");
+        refreshPreview();
 
         if (game.isOver()) {
             autoPlay.stop();
@@ -228,6 +237,25 @@ public final class GameWindow extends JFrame implements GameListener {
             autoPlayButton.setEnabled(false);
         }
         revalidate();
+    }
+
+    private void refreshPreview() {
+        Optional<Deploy> deploy = turn == null
+                ? Optional.empty()
+                : hovered.flatMap(position -> turn.deployAt(position, selectedSize()));
+        if (deploy.isEmpty()) {
+            boardPanel.clearPreview();
+            status.setText(turn == null ? " " : labels.text("status.humanTurn", game.currentPlayer()));
+            return;
+        }
+        Player player = game.currentPlayer();
+        List<GameEvent> effects = game.rules().preview(deploy.get(), player, game.board());
+        boardPanel.setPreview(deploy.get(), player, effects);
+        status.setText(effects.isEmpty()
+                ? labels.text("status.noEffect")
+                : labels.text("status.preview", effects.stream()
+                        .map(effect -> formatter.format(effect).strip())
+                        .collect(Collectors.joining(" · "))));
     }
 
     private int selectedSize() {

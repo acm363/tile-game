@@ -333,6 +333,53 @@ class WarRulesTest {
     }
 
     @Test
+    void thePreviewAnnouncesExactlyWhatTheDeploymentWillDoToItsNeighbours() {
+        // Given.
+        GameContext context = on(Boards.parse("~P~", "PPP", "~P~", "~~~", "~~~"));
+        Army north = put(context, bob, 2, new Position(0, 1));
+        put(context, bob, 1, new Position(1, 0));
+        put(context, alice, 1, new Position(1, 2));
+        put(context, bob, 5, new Position(2, 1));
+        Deploy deploy = new Deploy(new Position(1, 1), 4);
+
+        // When.
+        List<GameEvent> preview = rules.preview(deploy, alice, context.board());
+        rules.apply(deploy, alice, context);
+
+        // Then.
+        assertEquals(List.of(
+                new ArmyWeakened(bob, new Position(0, 1), 1),
+                new ArmyReinforced(alice, new Position(1, 2), 2),
+                new ArmyRallied(bob, alice, new Position(1, 0))), preview);
+        assertEquals(preview, events.subList(1, events.size()));
+        assertEquals(1, north.size());
+    }
+
+    @Test
+    void previewingLeavesTheBoardAndReservesUntouched() {
+        // Given.
+        GameContext context = on(Boards.parse("PP~~~~"));
+        Army enemy = put(context, bob, 1, LEFT);
+
+        // When.
+        rules.preview(new Deploy(RIGHT, 2), alice, context.board());
+
+        // Then.
+        assertTrue(context.board().isFree(RIGHT));
+        assertSame(bob, enemy.owner());
+        assertEquals(35, rules.warriors(alice));
+    }
+
+    @Test
+    void onlyDeploymentsHaveAPreview() {
+        // Given.
+        GameContext context = on(Boards.parse("PP~~~~"));
+
+        // Then.
+        assertTrue(rules.preview(new Pass(), alice, context.board()).isEmpty());
+    }
+
+    @Test
     void rulesRefuseActionsTheyDoNotKnow() {
         GameContext context = on(Boards.parse("PP~~~~"));
 
