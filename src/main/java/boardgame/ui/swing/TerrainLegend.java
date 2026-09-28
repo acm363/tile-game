@@ -10,21 +10,31 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.util.EnumMap;
+import java.util.Map;
 
 final class TerrainLegend extends JPanel {
 
-    TerrainLegend() {
+    private final Map<Terrain, JLabel> entries = new EnumMap<>(Terrain.class);
+
+    TerrainLegend(Labels labels) {
         super(new FlowLayout(FlowLayout.RIGHT, 12, 4));
         for (Terrain terrain : Terrain.values()) {
-            JLabel entry = new JLabel(label(terrain), new Swatch(TerrainColors.of(terrain)), JLabel.LEFT);
+            JLabel entry = new JLabel("", new Swatch(TerrainColors.of(terrain)), JLabel.LEFT);
             entry.setIconTextGap(6);
+            entries.put(terrain, entry);
             add(entry);
         }
+        setLabels(labels);
     }
 
-    static String label(Terrain terrain) {
-        String name = Labels.terrain(terrain);
-        return terrain.isLand() ? name + " (" + Labels.resource(terrain.resource()) + ")" : name;
+    void setLabels(Labels labels) {
+        entries.forEach((terrain, entry) -> entry.setText(label(labels, terrain)));
+    }
+
+    private static String label(Labels labels, Terrain terrain) {
+        String name = labels.terrain(terrain);
+        return terrain.isLand() ? name + " (" + labels.resource(terrain.resource()) + ")" : name;
     }
 
     record Swatch(Color color) implements Icon {

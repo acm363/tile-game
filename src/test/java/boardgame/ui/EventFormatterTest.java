@@ -14,6 +14,7 @@ import boardgame.engine.Passed;
 import boardgame.player.Player;
 import boardgame.war.ArmyDeployed;
 import boardgame.war.ArmyRallied;
+import boardgame.war.ArmyStarved;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -25,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EventFormatterTest {
 
-    private final EventFormatter formatter = new EventFormatter();
+    private final EventFormatter formatter = new EventFormatter(new Labels(Language.FR));
+    private final EventFormatter english = new EventFormatter(new Labels(Language.EN));
     private final Player alice = new Player("Alice");
     private final Player bob = new Player("Bob");
 
@@ -121,6 +123,35 @@ class EventFormatterTest {
 
         // Then.
         assertEquals("custom", text);
+    }
+
+    @Test
+    void eventsAreTranslatedIntoEnglish() {
+        // When.
+        String deployment = english.format(new ArmyDeployed(alice, new Position(2, 4), Terrain.DESERT, 3));
+        String harvest = english.format(new Harvested(alice, Map.of(Resource.WOOD, 1, Resource.ROCK, 2)));
+
+        // Then.
+        assertEquals("  Alice deploys an army of 3 on a desert tile (2, 4)", deployment);
+        assertEquals("  Alice harvests 2 rock, 1 wood", harvest);
+    }
+
+    @Test
+    void englishReordersArgumentsWhereTheGrammarRequiresIt() {
+        // When.
+        String text = english.format(new ArmyStarved(bob, new Position(0, 1), 4));
+
+        // Then.
+        assertEquals("  Bob's army of 4 at (0, 1) starves (+1 gold)", text);
+    }
+
+    @Test
+    void theEnglishResultNamesTheReasonAndTheWinner() {
+        // When.
+        String text = english.format(ended(Map.of(alice, 7), List.of(alice), EndReason.NO_TERRITORY_LEFT));
+
+        // Then.
+        assertEquals("══ Game over at round 3 (no territory left to conquer) ══\n  Alice: 7 point(s)\nWinner: Alice", text);
     }
 
     private static GameEnded ended(Map<Player, Integer> scores, List<Player> winners, EndReason reason) {

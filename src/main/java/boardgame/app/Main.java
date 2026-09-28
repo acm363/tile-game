@@ -38,7 +38,7 @@ public final class Main {
                 new RandomDecider(random));
 
         if (options.gui()) {
-            SwingUtilities.invokeLater(() -> new GameWindow(options.kind().title(), game).setVisible(true));
+            SwingUtilities.invokeLater(() -> new GameWindow(options.kind().titleKey(), game).setVisible(true));
         } else {
             game.addListener(new ConsoleLog(System.out));
             game.play();

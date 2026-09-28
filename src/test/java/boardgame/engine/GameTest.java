@@ -8,6 +8,8 @@ import boardgame.board.Position;
 import boardgame.player.Player;
 import boardgame.unit.Worker;
 import boardgame.ui.EventFormatter;
+import boardgame.ui.Labels;
+import boardgame.ui.Language;
 import boardgame.war.WarRules;
 import org.junit.jupiter.api.Test;
 
@@ -177,7 +179,7 @@ class GameTest {
         Board board = new BoardGenerator(random).generate(10, 10);
         Game game = new Game(new WarRules(), board, List.of(new Player("A"), new Player("B")), 10,
                 new RandomDecider(random));
-        EventFormatter formatter = new EventFormatter();
+        EventFormatter formatter = new EventFormatter(new Labels(Language.FR));
         List<String> log = new ArrayList<>();
         game.addListener(event -> log.add(formatter.format(event)));
         game.play();

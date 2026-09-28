@@ -9,16 +9,16 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 enum GameKind {
-    WAR("guerre", "Jeu de guerre", WarRules::new),
-    AGRICULTURE("agricole", "Jeu agricole", AgricultureRules::new);
+    WAR("guerre", "title.war", WarRules::new),
+    AGRICULTURE("agricole", "title.agriculture", AgricultureRules::new);
 
     private final String command;
-    private final String title;
+    private final String titleKey;
     private final Supplier<GameRules> rules;
 
-    GameKind(String command, String title, Supplier<GameRules> rules) {
+    GameKind(String command, String titleKey, Supplier<GameRules> rules) {
         this.command = command;
-        this.title = title;
+        this.titleKey = titleKey;
         this.rules = rules;
     }
 
@@ -30,8 +30,8 @@ enum GameKind {
         return command;
     }
 
-    String title() {
-        return title;
+    String titleKey() {
+        return titleKey;
     }
 
     GameRules newRules() {

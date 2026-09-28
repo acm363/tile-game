@@ -5,37 +5,47 @@ import boardgame.board.Resource;
 import boardgame.board.Terrain;
 
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 public final class Labels {
 
-    private Labels() {
+    private static final String BUNDLE = "boardgame.ui.messages";
+
+    private final Language language;
+    private final ResourceBundle bundle;
+
+    public Labels(Language language) {
+        this.language = language;
+        this.bundle = bundle(language);
     }
 
-    public static String terrain(Terrain terrain) {
-        return switch (terrain) {
-            case OCEAN -> "océan";
-            case MOUNTAIN -> "montagne";
-            case PLAIN -> "plaine";
-            case DESERT -> "désert";
-            case FOREST -> "forêt";
-        };
+    static ResourceBundle bundle(Language language) {
+        return ResourceBundle.getBundle(BUNDLE, language.locale(),
+                ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));
     }
 
-    public static String resource(Resource resource) {
-        return switch (resource) {
-            case ROCK -> "roche";
-            case WHEAT -> "blé";
-            case SAND -> "sable";
-            case WOOD -> "bois";
-        };
+    public Language language() {
+        return language;
     }
 
-    public static String position(Position position) {
+    public String text(String key, Object... args) {
+        return String.format(language.locale(), bundle.getString(key), args);
+    }
+
+    public String terrain(Terrain terrain) {
+        return text("terrain." + terrain.name());
+    }
+
+    public String resource(Resource resource) {
+        return text("resource." + resource.name());
+    }
+
+    public String position(Position position) {
         return "(" + position.row() + ", " + position.col() + ")";
     }
 
-    public static String resources(Map<Resource, Integer> resources) {
+    public String resources(Map<Resource, Integer> resources) {
         return resources.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> entry.getValue() + " " + resource(entry.getKey()))

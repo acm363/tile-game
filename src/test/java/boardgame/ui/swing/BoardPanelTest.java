@@ -4,6 +4,8 @@ import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
 import boardgame.player.Player;
+import boardgame.ui.Labels;
+import boardgame.ui.Language;
 import boardgame.unit.Army;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +29,7 @@ class BoardPanelTest {
 
     @BeforeEach
     void setUp() {
-        panel = new BoardPanel(board, new PlayerColors(List.of(alice)));
+        panel = new BoardPanel(board, new PlayerColors(List.of(alice)), new Labels(Language.FR));
         panel.setSize(2 * CELL, 2 * CELL);
     }
 
@@ -58,6 +60,18 @@ class BoardPanelTest {
         // Then.
         assertEquals("plaine (0, 1) — Alice, 2 guerrier(s), 0 or", occupied);
         assertEquals("désert (1, 0)", free);
+    }
+
+    @Test
+    void theTooltipFollowsTheSelectedLanguage() {
+        // Given.
+        board.place(new Position(0, 1), new Army(alice, 2));
+
+        // When.
+        panel.setLabels(new Labels(Language.EN));
+
+        // Then.
+        assertEquals("plain (0, 1) — Alice, 2 warrior(s), 0 gold", tooltipAt(CELL + 20, 20));
     }
 
     @Test

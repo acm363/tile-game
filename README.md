@@ -39,8 +39,10 @@ The first argument picks the game (`guerre` for war, `agricole` for farming), th
 | `--rounds <n>` | number of rounds (default 10 for war, 6 for farming)           |
 | `--seed <n>`   | random seed, to replay the exact same game                     |
 
-In the Swing window, **Tour suivant** plays one turn and **Lecture auto** plays the game at a steady pace. Hovering a
-tile shows its terrain, owner, size and gold. Game messages are in French.
+In the Swing window, **Tour suivant** / **Next turn** plays one turn and **Lecture auto** / **Auto play** plays the game
+at a steady pace. Hovering a tile shows its terrain, owner, size and gold. A selector next to the buttons switches the
+whole window between French and English, log included; the console stays in French. Texts live in
+`src/main/resources/boardgame/ui/messages_<lang>.properties`.
 
 ## The board
 

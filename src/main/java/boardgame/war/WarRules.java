@@ -158,8 +158,8 @@ public final class WarRules implements GameRules {
     @Override
     public Map<String, Integer> reserves(Player player) {
         Map<String, Integer> reserves = new LinkedHashMap<>();
-        reserves.put("guerriers", warriors(player));
-        reserves.put("nourriture", food(player));
+        reserves.put("warriors", warriors(player));
+        reserves.put("food", food(player));
         return reserves;
     }
 

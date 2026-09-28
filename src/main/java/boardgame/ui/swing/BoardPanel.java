@@ -25,13 +25,19 @@ final class BoardPanel extends JPanel {
 
     private final Board board;
     private final PlayerColors colors;
+    private Labels labels;
 
-    BoardPanel(Board board, PlayerColors colors) {
+    BoardPanel(Board board, PlayerColors colors, Labels labels) {
         this.board = board;
         this.colors = colors;
+        this.labels = labels;
         setPreferredSize(new Dimension(board.cols() * PREFERRED_CELL, board.rows() * PREFERRED_CELL));
         setBackground(GRID);
         setToolTipText("");
+    }
+
+    void setLabels(Labels labels) {
+        this.labels = labels;
     }
 
     @Override
@@ -78,10 +84,11 @@ final class BoardPanel extends JPanel {
     }
 
     private String describe(Position position) {
-        String tile = Labels.terrain(board.terrain(position)) + " " + Labels.position(position);
+        String tile = labels.terrain(board.terrain(position)) + " " + labels.position(position);
         return board.occupant(position)
-                .map(unit -> tile + " — " + unit.owner() + (unit instanceof Army army ? ", " + army.size() + " guerrier(s)" : "")
-                        + ", " + unit.gold() + " or")
+                .map(unit -> unit instanceof Army army
+                        ? labels.text("tooltip.army", tile, unit.owner(), army.size(), unit.gold())
+                        : labels.text("tooltip.unit", tile, unit.owner(), unit.gold()))
                 .orElse(tile);
     }
 

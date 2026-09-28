@@ -19,36 +19,46 @@ import java.util.stream.Collectors;
 final class PlayersPanel extends JPanel {
 
     private final Game game;
-    private final List<JLabel> labels = new ArrayList<>();
+    private final List<JLabel> summaries = new ArrayList<>();
+    private Labels labels;
 
-    PlayersPanel(Game game, PlayerColors colors) {
+    PlayersPanel(Game game, PlayerColors colors, Labels labels) {
         super(new GridLayout(0, 1, 0, 6));
         this.game = game;
+        this.labels = labels;
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         for (Player player : game.players()) {
             JLabel label = new JLabel();
             label.setIcon(new Swatch(colors.of(player)));
             label.setIconTextGap(8);
-            labels.add(label);
+            summaries.add(label);
             add(label);
         }
         refresh();
     }
 
+    void setLabels(Labels labels) {
+        this.labels = labels;
+        refresh();
+    }
+
     void refresh() {
-        for (int index = 0; index < labels.size(); index++) {
-            labels.get(index).setText(summary(game.players().get(index)));
+        for (int index = 0; index < summaries.size(); index++) {
+            summaries.get(index).setText(summary(game.players().get(index)));
         }
     }
 
     private String summary(Player player) {
         String reserves = game.rules().reserves(player).entrySet().stream()
-                .map(entry -> entry.getKey() + " " + entry.getValue())
+                .map(entry -> labels.text("reserve." + entry.getKey()) + " " + entry.getValue())
                 .collect(Collectors.joining(" · "));
-        String resources = player.resources().isEmpty() ? "aucune ressource" : Labels.resources(player.resources());
-        return "<html><b>" + escape(player.name()) + "</b> — " + game.rules().score(player, game.board()) + " pts<br>"
-                + "or " + player.gold() + (reserves.isEmpty() ? "" : " · " + reserves)
-                + " · " + game.board().territoriesOf(player).size() + " territoire(s)<br>"
+        String resources = player.resources().isEmpty()
+                ? labels.text("player.noResource")
+                : labels.resources(player.resources());
+        return "<html><b>" + escape(player.name()) + "</b> — "
+                + labels.text("player.score", game.rules().score(player, game.board())) + "<br>"
+                + labels.text("player.gold", player.gold()) + (reserves.isEmpty() ? "" : " · " + reserves)
+                + " · " + labels.text("player.territories", game.board().territoriesOf(player).size()) + "<br>"
                 + resources + "</html>";
     }
 
