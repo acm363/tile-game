@@ -1,7 +1,8 @@
 # Tactical war game — design notes
 
-Working notes to continue the design discussion. **Nothing below is implemented yet**; work happens on
-`feat/tactical-war-game`, branched from `main` at `a159840`.
+Working notes to continue the design discussion. Work happens on `feat/tactical-war-game`, branched from `main` at
+`a159840`. **Implemented on the branch:** the rules below, attacks from the Swing window, first player rotating each
+round. **Not yet:** the board distribution, the greedy bot and the balance check.
 
 ## Already on `main`
 
@@ -20,7 +21,7 @@ Make the war game a **tactical positioning and levelling game**: players choose 
 depending on terrain, distance and army level — later also weapon type and weapon level. Rules must stay easy
 for a new player. The farming game is out of scope for now.
 
-## Current war rules (to be replaced)
+## Previous war rules (replaced)
 
 Deploy 1–5 of 35 warriors; mountains/deserts hold at most 3. A deployment confronts its 4 neighbours: weaker
 enemies are halved or rally (+2 gold), smaller allies gain +1 (+1 gold); mountains give +2 strength. Upkeep turns
@@ -104,13 +105,17 @@ Resulting share of land tiles:
 
 ## Backlog after the rules
 
-1. Greedy bot using `GameRules.preview` (also needed to test balance).
-2. Always generate and show the seed; record actions to replay any game.
-3. UX: announce the turn before the click, end-of-game dialog, 1–5 keyboard shortcuts for size.
-4. Network play (later; turn-based → TCP, authoritative server, exchange seed + actions).
+1. Greedy bot using `GameRules.preview`, then the balance check over many seeded games — the biggest open risk.
+2. Board generator following the distribution above.
+3. Deploy preview showing which enemies the new army could reach and beat (tactical hint, not an event).
+4. Always generate and show the seed; record actions to replay any game.
+5. UX: announce the turn before the click, end-of-game dialog, 1–5 keyboard shortcuts for size; hide gold and
+   resources in the war game's player panel, where they are always empty.
+6. Network play (later; turn-based → TCP, authoritative server, exchange seed + actions).
 
 ## Conventions
 
 - Commits: concise, never an AI co-author trailer; never push without approval.
 - Tests: JUnit 5, `// Given.` / `// When.` / `// Then.` markers only — no other comments in code.
 - Verify GUI changes on the real display (screenshots via a throwaway script in the scratchpad).
+- Build with a full JDK: the system `java-25-openjdk` has no `javac`; use `JAVA_HOME=~/.jdks/temurin-26.0.2.1`.
