@@ -48,15 +48,18 @@ gold + terrain bonus + 5 for 10 tiles. Considered too complex for new players.
 
 Example: 5 soldiers on a mountain destroy a 3-soldier army on a plain 3 tiles away, but not one in a forest.
 
-### Open rule decisions
+### Rule decisions (settled 2026-10-01)
 
-| # | Question                     | Recommended                                   | Alternative                 |
+| # | Question                     | Decision                                      | Rejected                    |
 |---|------------------------------|-----------------------------------------------|-----------------------------|
 | 1 | When fights happen           | Attack is a separate action                   | Auto-fire on deploy         |
 | 2 | Effect of a won attack       | Enemy destroyed                               | Enemy captured (as today)   |
 | 3 | Which attacks are legal      | Only winnable ones (highlighted = beatable)   | Failed attacks with a cost  |
 | 4 | Levelling                    | +1 level per kill, max 3                      | No levels yet               |
 | 5 | Line of sight                | Ignored for now (shoot over sea and armies)   | Blocked by terrain/armies   |
+
+Read from the draft: no terrain caps an army's size any more (5 soldiers on a mountain is legal, as in the example),
+and an equal power is not enough to attack.
 
 ### Structural notes
 
@@ -83,7 +86,7 @@ scattered pairs of adjacent tiles; each land tile is plain/forest/desert/mountai
 | Mountain | **Drawn per game, uniformly between 10% and 15% of land** (from the seed)      |
 | Others   | Remaining land split plain : forest : desert = 40 : 25 : 20                    |
 | Grouping | Mountains in ridges, forests in patches, plains fill the rest                  |
-| Fairness | Mirrored board for 2 players (to decide)                                       |
+| Fairness | First player rotates each round (no mirrored board)                            |
 
 Resulting share of land tiles:
 
@@ -92,11 +95,12 @@ Resulting share of land tiles:
 | 10%            | 42.4% | 26.5%  | 21.2%  | 4 / 17 / 11 / 8                  |
 | 15%            | 40.0% | 25.0%  | 20.0%  | 6 / 16 / 10 / 8                  |
 
-### Open board decisions
+### Board decisions (settled 2026-10-01)
 
-1. Land share: fixed ≈ 40%, or a range?
-2. Plain : forest : desert ratio 40 : 25 : 20 — OK?
-3. Mirrored boards for fairness — structural: changes the generator and how starting sides are defined.
+1. Land share: fixed ≈ 40% — the mountain share already varies per game; a land range on top blurs balance checks.
+2. Plain : forest : desert ratio 40 : 25 : 20 — kept.
+3. Mirrored boards: dropped. Players have no sides — anyone deploys on any free tile — so there is nothing to mirror.
+   The real bias is turn order (`Game` always opened rounds with the first player): the first player now rotates.
 
 ## Backlog after the rules
 
