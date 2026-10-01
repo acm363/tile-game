@@ -3,6 +3,7 @@ package boardgame.ui.swing;
 import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
+import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
 import boardgame.engine.Passed;
 import boardgame.player.Player;
@@ -20,8 +21,8 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -85,16 +86,31 @@ class BoardPanelTest {
     }
 
     @Test
-    void highlightedTilesAreOutlined() {
+    void highlightedTilesAreOutlinedInTheirOwnColour() {
         // Given.
-        panel.setHighlighted(Set.of(new Position(1, 0)));
+        panel.setHighlights(Map.of(new Position(1, 0), Color.WHITE, new Position(0, 1), BoardPanel.RED));
 
         // When.
         BufferedImage image = render();
 
         // Then.
         assertEquals(Color.WHITE.getRGB(), image.getRGB(CELL / 2, CELL + 4));
+        assertEquals(BoardPanel.RED.getRGB(), image.getRGB(CELL + CELL / 2, 4));
         assertEquals(new Color(0xE8E62F).getRGB(), image.getRGB(CELL / 2, CELL + CELL / 2));
+    }
+
+    @Test
+    void anArmysLevelIsShownAsGoldPipsUnderItsSize() {
+        // Given.
+        Army army = new Army(alice, 2);
+        army.promote();
+        board.place(new Position(0, 1), army);
+
+        // When.
+        BufferedImage image = render();
+
+        // Then.
+        assertEquals(BoardPanel.GOLD.getRGB(), image.getRGB(CELL + CELL / 2, CELL - 5));
     }
 
     @Test
@@ -111,19 +127,29 @@ class BoardPanelTest {
     }
 
     @Test
-    void thePreviewShowsTheArmyToDeployAndMarksTheAffectedNeighbours() {
-        // Given.
-        Player bob = new Player("Bob");
-        board.place(new Position(0, 1), new Army(bob, 2));
-
+    void aDeploymentPreviewShowsAGhostOfTheArmy() {
         // When.
-        panel.setPreview(new Deploy(new Position(1, 0), 3), alice,
-                List.of(new ArmyDestroyed(alice, new Position(1, 0), bob, new Position(0, 1), 2)));
+        panel.setPreview(new Deploy(new Position(1, 0), 3), alice, List.of());
         BufferedImage image = render();
 
         // Then.
-        assertEquals(BoardPanel.DESTROYED.getRGB(), image.getRGB(CELL + 2, CELL / 2));
         assertNotEquals(new Color(0xE8E62F).getRGB(), image.getRGB(15, CELL + CELL / 2));
+    }
+
+    @Test
+    void anAttackPreviewMarksTheTargetWithoutAGhost() {
+        // Given.
+        Player bob = new Player("Bob");
+        board.place(new Position(0, 1), new Army(bob, 2));
+        Attack attack = new Attack(new Position(1, 0), new Position(0, 1));
+
+        // When.
+        panel.setPreview(attack, alice, List.of(new ArmyDestroyed(alice, attack.from(), bob, attack.target(), 2)));
+        BufferedImage image = render();
+
+        // Then.
+        assertEquals(BoardPanel.RED.getRGB(), image.getRGB(CELL + 2, CELL / 2));
+        assertEquals(new Color(0xE8E62F).getRGB(), image.getRGB(15, CELL + CELL / 2));
     }
 
     @Test

@@ -2,7 +2,7 @@ package boardgame.ui.swing;
 
 import boardgame.board.Position;
 import boardgame.engine.Action;
-import boardgame.engine.Deploy;
+import boardgame.engine.Attack;
 import boardgame.engine.Game;
 import boardgame.engine.GameEvent;
 import boardgame.engine.GameListener;
@@ -27,6 +27,7 @@ import javax.swing.JToggleButton;
 import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -34,9 +35,10 @@ import java.awt.Font;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class GameWindow extends JFrame implements GameListener {
@@ -66,6 +68,7 @@ public final class GameWindow extends JFrame implements GameListener {
     private EventFormatter formatter = new EventFormatter(labels);
     private HumanTurn turn;
     private Optional<Position> hovered = Optional.empty();
+    private Position attacker;
     private int preferredSize = Integer.MAX_VALUE;
     private boolean refreshingSizes;
 
@@ -97,8 +100,7 @@ public final class GameWindow extends JFrame implements GameListener {
         sizeBox.addActionListener(event -> {
             if (!refreshingSizes && sizeBox.getSelectedItem() instanceof Integer size) {
                 preferredSize = size;
-                boardPanel.setHighlighted(turn == null ? Set.of() : turn.deployTargets(size));
-                refreshPreview();
+                refreshSelection();
             }
         });
         otherBox.setRenderer(new DefaultListCellRenderer() {
@@ -114,7 +116,7 @@ public final class GameWindow extends JFrame implements GameListener {
                 playHuman(action);
             }
         });
-        boardPanel.setOnTileClicked(this::deployAt);
+        boardPanel.setOnTileClicked(this::tileClicked);
         boardPanel.setOnTileHovered(position -> {
             hovered = position;
             refreshPreview();
@@ -191,10 +193,24 @@ public final class GameWindow extends JFrame implements GameListener {
         }
     }
 
-    private void deployAt(Position position) {
-        if (turn != null) {
-            turn.deployAt(position, selectedSize()).ifPresent(this::playHuman);
+    private void tileClicked(Position position) {
+        if (turn == null) {
+            return;
         }
+        if (attacker != null) {
+            Optional<Attack> attack = turn.attack(attacker, position);
+            if (attack.isPresent()) {
+                playHuman(attack.get());
+                return;
+            }
+            attacker = !position.equals(attacker) && turn.attackers().contains(position) ? position : null;
+        } else if (turn.attackers().contains(position)) {
+            attacker = position;
+        } else {
+            turn.deployAt(position, selectedSize()).ifPresent(this::playHuman);
+            return;
+        }
+        refreshSelection();
     }
 
     private void playHuman(Action action) {
@@ -207,6 +223,7 @@ public final class GameWindow extends JFrame implements GameListener {
 
     private void refreshTurn() {
         turn = !game.isOver() && human.controls(game.currentPlayer()) ? new HumanTurn(game.legalActions()) : null;
+        attacker = null;
         boolean humanTurn = turn != null;
 
         refreshingSizes = true;
@@ -229,8 +246,7 @@ public final class GameWindow extends JFrame implements GameListener {
         passButton.setVisible(humanTurn);
         passButton.setEnabled(humanTurn && turn.canPass());
         stepButton.setEnabled(!game.isOver() && !humanTurn);
-        boardPanel.setHighlighted(humanTurn ? turn.deployTargets(selectedSize()) : Set.of());
-        refreshPreview();
+        refreshSelection();
 
         if (game.isOver()) {
             autoPlay.stop();
@@ -240,23 +256,48 @@ public final class GameWindow extends JFrame implements GameListener {
         revalidate();
     }
 
-    private void refreshPreview() {
-        Optional<Deploy> deploy = turn == null
-                ? Optional.empty()
-                : hovered.flatMap(position -> turn.deployAt(position, selectedSize()));
-        if (deploy.isEmpty()) {
-            boardPanel.clearPreview();
-            status.setText(turn == null ? " " : labels.text("status.humanTurn", game.currentPlayer()));
-            return;
+    private void refreshSelection() {
+        Map<Position, Color> highlights = new HashMap<>();
+        if (turn != null && attacker == null) {
+            turn.deployTargets(selectedSize()).forEach(position -> highlights.put(position, BoardPanel.HIGHLIGHT));
+            turn.attackers().forEach(position -> highlights.put(position, BoardPanel.RED));
+        } else if (turn != null) {
+            turn.attackTargets(attacker).forEach(position -> highlights.put(position, BoardPanel.RED));
+            highlights.put(attacker, BoardPanel.GOLD);
         }
-        Player player = game.currentPlayer();
-        List<GameEvent> effects = game.rules().preview(deploy.get(), player, game.board());
-        boardPanel.setPreview(deploy.get(), player, effects);
+        boardPanel.setHighlights(highlights);
+        refreshPreview();
+    }
+
+    private void refreshPreview() {
+        Optional<Action> action = turn == null ? Optional.empty() : hovered.flatMap(this::actionAt);
+        List<GameEvent> effects = action
+                .map(hoveredAction -> game.rules().preview(hoveredAction, game.currentPlayer(), game.board()))
+                .orElse(List.of());
+        action.ifPresentOrElse(hoveredAction -> boardPanel.setPreview(hoveredAction, game.currentPlayer(), effects),
+                boardPanel::clearPreview);
         status.setText(effects.isEmpty()
-                ? labels.text("status.noEffect")
+                ? prompt()
                 : labels.text("status.preview", effects.stream()
                         .map(effect -> formatter.format(effect).strip())
                         .collect(Collectors.joining(" · "))));
+    }
+
+    private Optional<Action> actionAt(Position position) {
+        return attacker != null
+                ? turn.attack(attacker, position).map(Action.class::cast)
+                : turn.deployAt(position, selectedSize()).map(Action.class::cast);
+    }
+
+    private String prompt() {
+        if (turn == null) {
+            return " ";
+        }
+        if (attacker != null) {
+            return labels.text("status.attackerSelected");
+        }
+        return labels.text(turn.attackers().isEmpty() ? "status.humanTurn" : "status.humanTurnWithAttacks",
+                game.currentPlayer());
     }
 
     private int selectedSize() {

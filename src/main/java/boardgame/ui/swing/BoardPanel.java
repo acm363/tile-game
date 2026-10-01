@@ -4,6 +4,7 @@ import boardgame.agriculture.WorkerDeployed;
 import boardgame.agriculture.WorkerDismissed;
 import boardgame.board.Board;
 import boardgame.board.Position;
+import boardgame.engine.Action;
 import boardgame.engine.Deploy;
 import boardgame.engine.GameEvent;
 import boardgame.player.Player;
@@ -27,32 +28,32 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.Consumer;
 
 final class BoardPanel extends JPanel {
 
     private static final int PREFERRED_CELL = 56;
     private static final Color GRID = new Color(0x14125C);
-    private static final Color HIGHLIGHT = Color.WHITE;
-    static final Color DESTROYED = new Color(0xFF4D4D);
-    static final Color PROMOTED = new Color(0xFFD700);
+    static final Color HIGHLIGHT = Color.WHITE;
+    static final Color RED = new Color(0xFF4D4D);
+    static final Color GOLD = new Color(0xFFD700);
     private static final int GHOST_ALPHA = 90;
     private static final int ANIMATION_FRAME_MS = 40;
 
     private final Board board;
     private final PlayerColors colors;
     private Labels labels;
-    private Set<Position> highlighted = Set.of();
+    private Map<Position, Color> highlights = Map.of();
     private Consumer<Position> onTileClicked = position -> {
     };
     private Consumer<Optional<Position>> onTileHovered = position -> {
     };
     private Optional<Position> hovered = Optional.empty();
-    private Deploy previewedDeploy;
+    private Action previewedAction;
     private Player previewedOwner;
     private List<GameEvent> previewedEffects = List.of();
     private final TileAnimations animations = new TileAnimations(new Random());
@@ -100,7 +101,7 @@ final class BoardPanel extends JPanel {
                 animations.flash(e.from(), HIGHLIGHT);
                 animations.crumble(e.target(), colors.of(e.defender()));
             }
-            case ArmyPromoted e -> animations.flash(e.position(), PROMOTED);
+            case ArmyPromoted e -> animations.flash(e.position(), GOLD);
             case WorkerDismissed e -> animations.crumble(e.position(), colors.of(e.owner()));
             default -> {
                 return;
@@ -128,24 +129,24 @@ final class BoardPanel extends JPanel {
         onTileHovered = listener;
     }
 
-    void setPreview(Deploy deploy, Player owner, List<GameEvent> effects) {
-        previewedDeploy = deploy;
+    void setPreview(Action action, Player owner, List<GameEvent> effects) {
+        previewedAction = action;
         previewedOwner = owner;
         previewedEffects = List.copyOf(effects);
         repaint();
     }
 
     void clearPreview() {
-        if (previewedDeploy != null) {
-            previewedDeploy = null;
+        if (previewedAction != null) {
+            previewedAction = null;
             previewedOwner = null;
             previewedEffects = List.of();
             repaint();
         }
     }
 
-    void setHighlighted(Set<Position> positions) {
-        highlighted = Set.copyOf(positions);
+    void setHighlights(Map<Position, Color> highlights) {
+        this.highlights = Map.copyOf(highlights);
         repaint();
     }
 
@@ -173,8 +174,9 @@ final class BoardPanel extends JPanel {
             g.setColor(GRID);
             g.drawRect(x, y, cell, cell);
             board.occupant(position).ifPresent(unit -> paintUnit(g, unit, x, y, cell));
-            if (highlighted.contains(position)) {
-                paintHighlight(g, x, y, cell);
+            Color highlight = highlights.get(position);
+            if (highlight != null) {
+                paintHighlight(g, highlight, x, y, cell);
             }
         }
         animations.paint(g, originX(cell), originY(cell), cell);
@@ -183,15 +185,14 @@ final class BoardPanel extends JPanel {
     }
 
     private void paintPreview(Graphics2D g, int cell) {
-        if (previewedDeploy == null) {
-            return;
+        if (previewedAction instanceof Deploy deploy) {
+            Position target = deploy.position();
+            paintGhost(g, colors.of(previewedOwner), deploy.size(), tileX(target, cell), tileY(target, cell), cell);
         }
-        Position target = previewedDeploy.position();
-        paintGhost(g, colors.of(previewedOwner), previewedDeploy.size(), tileX(target, cell), tileY(target, cell), cell);
         for (GameEvent effect : previewedEffects) {
             switch (effect) {
-                case ArmyDestroyed e -> paintEffect(g, e.target(), DESTROYED, "×", cell);
-                case ArmyPromoted e -> paintEffect(g, e.position(), PROMOTED, "★" + e.level(), cell);
+                case ArmyDestroyed e -> paintEffect(g, e.target(), RED, "×", cell);
+                case ArmyPromoted e -> paintEffect(g, e.position(), GOLD, "★" + e.level(), cell);
                 default -> {
                 }
             }
@@ -236,9 +237,9 @@ final class BoardPanel extends JPanel {
         g.setFont(font);
     }
 
-    private void paintHighlight(Graphics2D g, int x, int y, int cell) {
+    private void paintHighlight(Graphics2D g, Color color, int x, int y, int cell) {
         int width = Math.max(2, cell / 14);
-        g.setColor(HIGHLIGHT);
+        g.setColor(color);
         g.setStroke(new BasicStroke(width));
         g.drawRect(x + width, y + width, cell - 2 * width, cell - 2 * width);
     }
@@ -246,6 +247,24 @@ final class BoardPanel extends JPanel {
     private void paintUnit(Graphics2D g, Unit unit, int x, int y, int cell) {
         String label = unit instanceof Army army ? String.valueOf(army.size()) : "";
         paintDisc(g, colors.of(unit.owner()), label, x, y, cell);
+        if (unit instanceof Army army) {
+            paintLevel(g, army.level(), x, y, cell);
+        }
+    }
+
+    private void paintLevel(Graphics2D g, int level, int x, int y, int cell) {
+        int pip = Math.max(4, cell / 8);
+        int gap = pip / 2;
+        int left = x + (cell - level * pip - (level - 1) * gap) / 2;
+        int top = y + cell - pip - Math.max(1, cell / 28);
+        g.setStroke(new BasicStroke(1f));
+        for (int index = 0; index < level; index++) {
+            int pipX = left + index * (pip + gap);
+            g.setColor(GOLD);
+            g.fillOval(pipX, top, pip, pip);
+            g.setColor(Color.BLACK);
+            g.drawOval(pipX, top, pip, pip);
+        }
     }
 
     private void paintDisc(Graphics2D g, Color fill, String label, int x, int y, int cell) {

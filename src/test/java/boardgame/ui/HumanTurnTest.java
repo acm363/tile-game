@@ -20,12 +20,14 @@ class HumanTurnTest {
 
     private static final Position MOUNTAIN = new Position(0, 0);
     private static final Position PLAIN = new Position(0, 1);
+    private static final Position DESERT = new Position(0, 2);
+    private static final Position FOREST = new Position(0, 3);
 
     private final HumanTurn turn = new HumanTurn(List.of(
             new Pass(),
             new Deploy(MOUNTAIN, 1), new Deploy(MOUNTAIN, 2), new Deploy(MOUNTAIN, 3),
             new Deploy(PLAIN, 1), new Deploy(PLAIN, 2), new Deploy(PLAIN, 3), new Deploy(PLAIN, 4),
-            new Attack(PLAIN, MOUNTAIN),
+            new Attack(DESERT, MOUNTAIN), new Attack(DESERT, PLAIN), new Attack(FOREST, PLAIN),
             new Exchange(Resource.WOOD, 1)));
 
     @Test
@@ -56,6 +58,37 @@ class HumanTurnTest {
 
         // Then.
         assertEquals(Optional.of(new Deploy(PLAIN, 4)), legal);
+        assertTrue(illegal.isEmpty());
+    }
+
+    @Test
+    void attackersAreTheArmiesWithAWinnableAttack() {
+        // When.
+        Set<Position> attackers = turn.attackers();
+
+        // Then.
+        assertEquals(Set.of(DESERT, FOREST), attackers);
+    }
+
+    @Test
+    void targetsAreTheEnemiesTheSelectedArmyCanBeat() {
+        // When.
+        Set<Position> fromDesert = turn.attackTargets(DESERT);
+        Set<Position> fromPlain = turn.attackTargets(PLAIN);
+
+        // Then.
+        assertEquals(Set.of(MOUNTAIN, PLAIN), fromDesert);
+        assertEquals(Set.of(), fromPlain);
+    }
+
+    @Test
+    void clickingATargetOnlyYieldsALegalAttack() {
+        // When.
+        Optional<Attack> legal = turn.attack(FOREST, PLAIN);
+        Optional<Attack> illegal = turn.attack(FOREST, MOUNTAIN);
+
+        // Then.
+        assertEquals(Optional.of(new Attack(FOREST, PLAIN)), legal);
         assertTrue(illegal.isEmpty());
     }
 

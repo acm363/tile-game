@@ -118,13 +118,18 @@ per territory comes for free and can be overridden. Emit your own `GameEvent` re
 ### Human players
 
 `HumanDecider` returns the action submitted by the window. Everything runs on the Swing thread: on a human's turn the
-window asks `Game` for the upcoming player's legal actions, highlights the tiles where the selected army size can be
-deployed, and only calls `playTurn()` once a tile, **Pass** or **Sell** is clicked. Bots keep playing through
-**Next turn** and **Auto play**, which wait whenever a human is to move. Hovering a highlighted tile previews the move:
-a ghost of the army, and a mark on each neighbour it would weaken (red), rally (gold) or reinforce (green). The marks
-come from `GameRules.preview`, which the war rules compute with the same code that applies a deployment. After each
-move the touched tiles flash in the same colours, and a starved army or dismissed worker crumbles into a pile of sand
-(a small falling-sand automaton) before fading out.
+window asks `Game` for the upcoming player's legal actions and only calls `playTurn()` once a move is clicked. Bots keep
+playing through **Next turn** and **Auto play**, which wait whenever a human is to move.
+
+- **Deploy:** tiles where the selected size can go are outlined in white; hovering one shows a ghost of the army.
+- **Attack:** armies with a winnable attack are outlined in red. Clicking one selects it (gold) and outlines its targets
+  in red; clicking a target attacks, clicking anywhere else cancels. Hovering a target marks it with a × and the
+  attacker with its next level.
+- **Pass** and **Sell** are buttons.
+
+The marks come from `GameRules.preview`, which the war rules compute with the same code that applies an attack. After
+each move the touched tiles flash, a promoted army flashes gold, and a destroyed army or dismissed worker crumbles into
+a pile of sand (a small falling-sand automaton) before fading out. An army's level shows as gold pips under its size.
 
 ## Rule interpretations
 
