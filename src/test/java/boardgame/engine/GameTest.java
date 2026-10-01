@@ -105,10 +105,10 @@ class GameTest {
     }
 
     @Test
-    void playersTakeTheirTurnsInTheGivenOrder() {
+    void playersTakeTheirTurnsInTheGivenOrderAndTheFirstPlayerRotatesEachRound() {
         // Given.
         Player carol = new Player("Carol");
-        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(bob, carol, alice), 2, ALWAYS_PASS);
+        Game game = new Game(new WarRules(), Boards.parse("PP~~~~"), List.of(bob, carol, alice), 3, ALWAYS_PASS);
         game.addListener(events::add);
 
         // When.
@@ -117,7 +117,7 @@ class GameTest {
         // Then.
         List<Player> turns = events.stream().filter(TurnStarted.class::isInstance)
                 .map(event -> ((TurnStarted) event).player()).toList();
-        assertEquals(List.of(bob, carol, alice, bob, carol, alice), turns);
+        assertEquals(List.of(bob, carol, alice, carol, alice, bob, alice, bob, carol), turns);
     }
 
     @Test

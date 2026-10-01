@@ -59,7 +59,7 @@ public final class Game {
 
     public Player currentPlayer() {
         requireNotOver();
-        return context.players().get(turnIndex);
+        return context.players().get((round - 1 + turnIndex) % context.players().size());
     }
 
     public List<Action> legalActions() {

@@ -52,7 +52,7 @@ Tiles are ocean, mountain, plain, desert or forest; land tiles produce rock, whe
 generator guarantees that at least two thirds of the board is ocean and that every land tile touches another land tile.
 Characters only stand on land, one per tile.
 
-A game ends after its last round, or immediately — mid-turn — once no free land is left.
+Players take turns in the order given; the first player rotates each round so nobody always moves first. A game ends after its last round, or immediately — mid-turn — once no free land is left.
 
 ## War game
 
