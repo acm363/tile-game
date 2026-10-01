@@ -2,6 +2,7 @@ package boardgame.ui;
 
 import boardgame.board.Position;
 import boardgame.board.Resource;
+import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
 import boardgame.engine.Exchange;
 import boardgame.engine.Pass;
@@ -24,6 +25,7 @@ class HumanTurnTest {
             new Pass(),
             new Deploy(MOUNTAIN, 1), new Deploy(MOUNTAIN, 2), new Deploy(MOUNTAIN, 3),
             new Deploy(PLAIN, 1), new Deploy(PLAIN, 2), new Deploy(PLAIN, 3), new Deploy(PLAIN, 4),
+            new Attack(PLAIN, MOUNTAIN),
             new Exchange(Resource.WOOD, 1)));
 
     @Test
@@ -58,7 +60,7 @@ class HumanTurnTest {
     }
 
     @Test
-    void actionsOtherThanDeployingAndPassingAreOfferedSeparately() {
+    void actionsOtherThanDeployingAttackingAndPassingAreOfferedSeparately() {
         // Then.
         assertTrue(turn.canPass());
         assertEquals(List.of(new Exchange(Resource.WOOD, 1)), turn.otherActions());

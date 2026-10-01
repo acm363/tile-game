@@ -2,6 +2,7 @@ package boardgame.ui;
 
 import boardgame.board.Position;
 import boardgame.engine.Action;
+import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
 import boardgame.engine.Pass;
 
@@ -37,7 +38,9 @@ public final class HumanTurn {
     }
 
     public List<Action> otherActions() {
-        return legalActions.stream().filter(action -> !(action instanceof Deploy) && !(action instanceof Pass)).toList();
+        return legalActions.stream()
+                .filter(action -> !(action instanceof Deploy) && !(action instanceof Attack) && !(action instanceof Pass))
+                .toList();
     }
 
     private Stream<Deploy> deploys() {

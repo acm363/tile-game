@@ -4,5 +4,5 @@ import boardgame.board.Position;
 import boardgame.engine.GameEvent;
 import boardgame.player.Player;
 
-public record ArmyStarved(Player owner, Position position, int size) implements GameEvent {
+public record ArmyPromoted(Player owner, Position position, int level) implements GameEvent {
 }

@@ -13,11 +13,8 @@ import boardgame.engine.RoundStarted;
 import boardgame.engine.TurnStarted;
 import boardgame.player.Player;
 import boardgame.war.ArmyDeployed;
-import boardgame.war.ArmyRallied;
-import boardgame.war.ArmyReinforced;
-import boardgame.war.ArmyStarved;
-import boardgame.war.ArmyWeakened;
-import boardgame.war.FoodProduced;
+import boardgame.war.ArmyDestroyed;
+import boardgame.war.ArmyPromoted;
 
 import java.util.stream.Collectors;
 
@@ -41,12 +38,9 @@ public final class EventFormatter {
             case Harvested e -> indented("event.harvested", e.player(), labels.resources(e.resources()));
             case ArmyDeployed e -> indented("event.armyDeployed", e.player(), e.size(), labels.terrain(e.terrain()),
                     labels.position(e.position()));
-            case ArmyWeakened e -> indented("event.armyWeakened", e.owner(), labels.position(e.position()), e.size());
-            case ArmyRallied e -> indented("event.armyRallied", e.previousOwner(), labels.position(e.position()),
-                    e.newOwner());
-            case ArmyReinforced e -> indented("event.armyReinforced", labels.position(e.position()), e.size());
-            case FoodProduced e -> indented("event.foodProduced", e.player(), e.food());
-            case ArmyStarved e -> indented("event.armyStarved", e.size(), e.owner(), labels.position(e.position()));
+            case ArmyDestroyed e -> indented("event.armyDestroyed", e.attacker(), labels.position(e.from()),
+                    e.defender(), e.size(), labels.position(e.target()));
+            case ArmyPromoted e -> indented("event.armyPromoted", e.owner(), labels.position(e.position()), e.level());
             case WorkerDeployed e -> indented("event.workerDeployed", e.player(), labels.terrain(e.terrain()),
                     labels.position(e.position()));
             case ResourceSold e -> indented("event.resourceSold", e.player(), e.quantity(),

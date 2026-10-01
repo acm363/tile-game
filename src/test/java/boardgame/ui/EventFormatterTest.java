@@ -13,8 +13,8 @@ import boardgame.engine.Harvested;
 import boardgame.engine.Passed;
 import boardgame.player.Player;
 import boardgame.war.ArmyDeployed;
-import boardgame.war.ArmyRallied;
-import boardgame.war.ArmyStarved;
+import boardgame.war.ArmyDestroyed;
+import boardgame.war.ArmyPromoted;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -41,12 +41,12 @@ class EventFormatterTest {
     }
 
     @Test
-    void rallyingNamesBothPlayers() {
+    void aPromotionNamesTheArmyAndItsNewLevel() {
         // When.
-        String text = formatter.format(new ArmyRallied(bob, alice, new Position(0, 1)));
+        String text = formatter.format(new ArmyPromoted(alice, new Position(0, 1), 2));
 
         // Then.
-        assertEquals("  l'armée de Bob en (0, 1) se rallie à Alice", text);
+        assertEquals("  l'armée de Alice en (0, 1) passe au niveau 2", text);
     }
 
     @Test
@@ -137,12 +137,17 @@ class EventFormatterTest {
     }
 
     @Test
-    void englishReordersArgumentsWhereTheGrammarRequiresIt() {
+    void aDestructionNamesBothArmiesInTheOrderEachLanguageNeeds() {
+        // Given.
+        ArmyDestroyed destroyed = new ArmyDestroyed(alice, new Position(0, 0), bob, new Position(0, 3), 4);
+
         // When.
-        String text = english.format(new ArmyStarved(bob, new Position(0, 1), 4));
+        String french = formatter.format(destroyed);
+        String text = english.format(destroyed);
 
         // Then.
-        assertEquals("  Bob's army of 4 at (0, 1) starves (+1 gold)", text);
+        assertEquals("  l'armée de Alice en (0, 0) détruit l'armée de 4 de Bob en (0, 3)", french);
+        assertEquals("  Alice's army at (0, 0) destroys Bob's army of 4 at (0, 3)", text);
     }
 
     @Test

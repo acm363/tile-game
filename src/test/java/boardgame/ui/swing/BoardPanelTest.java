@@ -9,8 +9,8 @@ import boardgame.player.Player;
 import boardgame.ui.Labels;
 import boardgame.ui.Language;
 import boardgame.unit.Army;
-import boardgame.war.ArmyStarved;
-import boardgame.war.ArmyWeakened;
+import boardgame.war.ArmyDestroyed;
+import boardgame.war.ArmyPromoted;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +68,7 @@ class BoardPanelTest {
         String free = tooltipAt(20, CELL + 20);
 
         // Then.
-        assertEquals("plaine (0, 1) — Alice, 2 guerrier(s), 0 or", occupied);
+        assertEquals("plaine (0, 1) — Alice, 2 soldat(s), niveau 0", occupied);
         assertEquals("désert (1, 0)", free);
     }
 
@@ -81,7 +81,7 @@ class BoardPanelTest {
         panel.setLabels(new Labels(Language.EN));
 
         // Then.
-        assertEquals("plain (0, 1) — Alice, 2 warrior(s), 0 gold", tooltipAt(CELL + 20, 20));
+        assertEquals("plain (0, 1) — Alice, 2 soldier(s), level 0", tooltipAt(CELL + 20, 20));
     }
 
     @Test
@@ -118,11 +118,11 @@ class BoardPanelTest {
 
         // When.
         panel.setPreview(new Deploy(new Position(1, 0), 3), alice,
-                List.of(new ArmyWeakened(bob, new Position(0, 1), 1)));
+                List.of(new ArmyDestroyed(alice, new Position(1, 0), bob, new Position(0, 1), 2)));
         BufferedImage image = render();
 
         // Then.
-        assertEquals(BoardPanel.WEAKENED.getRGB(), image.getRGB(CELL + 2, CELL / 2));
+        assertEquals(BoardPanel.DESTROYED.getRGB(), image.getRGB(CELL + 2, CELL / 2));
         assertNotEquals(new Color(0xE8E62F).getRGB(), image.getRGB(15, CELL + CELL / 2));
     }
 
@@ -155,12 +155,12 @@ class BoardPanelTest {
     }
 
     @Test
-    void aWeakenedArmyFlashesThenTheTileReturnsToNormal() {
+    void aPromotedArmyFlashesThenTheTileReturnsToNormal() {
         // Given.
         int plain = new Color(0x33D445).getRGB();
 
         // When.
-        panel.animate(new ArmyWeakened(alice, new Position(0, 1), 1));
+        panel.animate(new ArmyPromoted(alice, new Position(0, 1), 1));
         int flashing = render().getRGB(CELL + 3, 3);
         for (int frame = 0; frame < TileAnimations.FLASH_FRAMES; frame++) {
             panel.tickAnimations();
@@ -173,9 +173,9 @@ class BoardPanelTest {
     }
 
     @Test
-    void aStarvedArmyCrumblesToTheBottomOfItsTile() {
+    void aDestroyedArmyCrumblesToTheBottomOfItsTile() {
         // When.
-        panel.animate(new ArmyStarved(alice, new Position(0, 1), 3));
+        panel.animate(new ArmyDestroyed(alice, new Position(1, 1), alice, new Position(0, 1), 3));
         for (int frame = 0; frame < TileAnimations.CRUMBLE_FRAMES / 2; frame++) {
             panel.tickAnimations();
         }

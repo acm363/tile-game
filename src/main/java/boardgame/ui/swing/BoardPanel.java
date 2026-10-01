@@ -11,10 +11,8 @@ import boardgame.ui.Labels;
 import boardgame.unit.Army;
 import boardgame.unit.Unit;
 import boardgame.war.ArmyDeployed;
-import boardgame.war.ArmyRallied;
-import boardgame.war.ArmyReinforced;
-import boardgame.war.ArmyStarved;
-import boardgame.war.ArmyWeakened;
+import boardgame.war.ArmyDestroyed;
+import boardgame.war.ArmyPromoted;
 
 import javax.swing.JPanel;
 import javax.swing.Timer;
@@ -40,9 +38,8 @@ final class BoardPanel extends JPanel {
     private static final int PREFERRED_CELL = 56;
     private static final Color GRID = new Color(0x14125C);
     private static final Color HIGHLIGHT = Color.WHITE;
-    static final Color WEAKENED = new Color(0xFF4D4D);
-    static final Color RALLIED = new Color(0xFFD700);
-    static final Color REINFORCED = new Color(0x7CFC00);
+    static final Color DESTROYED = new Color(0xFF4D4D);
+    static final Color PROMOTED = new Color(0xFFD700);
     private static final int GHOST_ALPHA = 90;
     private static final int ANIMATION_FRAME_MS = 40;
 
@@ -99,10 +96,11 @@ final class BoardPanel extends JPanel {
         switch (event) {
             case ArmyDeployed e -> animations.flash(e.position(), HIGHLIGHT);
             case WorkerDeployed e -> animations.flash(e.position(), HIGHLIGHT);
-            case ArmyWeakened e -> animations.flash(e.position(), WEAKENED);
-            case ArmyRallied e -> animations.flash(e.position(), RALLIED);
-            case ArmyReinforced e -> animations.flash(e.position(), REINFORCED);
-            case ArmyStarved e -> animations.crumble(e.position(), colors.of(e.owner()));
+            case ArmyDestroyed e -> {
+                animations.flash(e.from(), HIGHLIGHT);
+                animations.crumble(e.target(), colors.of(e.defender()));
+            }
+            case ArmyPromoted e -> animations.flash(e.position(), PROMOTED);
             case WorkerDismissed e -> animations.crumble(e.position(), colors.of(e.owner()));
             default -> {
                 return;
@@ -192,9 +190,8 @@ final class BoardPanel extends JPanel {
         paintGhost(g, colors.of(previewedOwner), previewedDeploy.size(), tileX(target, cell), tileY(target, cell), cell);
         for (GameEvent effect : previewedEffects) {
             switch (effect) {
-                case ArmyWeakened e -> paintEffect(g, e.position(), WEAKENED, "→" + e.size(), cell);
-                case ArmyRallied e -> paintEffect(g, e.position(), RALLIED, "★", cell);
-                case ArmyReinforced e -> paintEffect(g, e.position(), REINFORCED, "→" + e.size(), cell);
+                case ArmyDestroyed e -> paintEffect(g, e.target(), DESTROYED, "×", cell);
+                case ArmyPromoted e -> paintEffect(g, e.position(), PROMOTED, "★" + e.level(), cell);
                 default -> {
                 }
             }
@@ -274,7 +271,7 @@ final class BoardPanel extends JPanel {
         String tile = labels.terrain(board.terrain(position)) + " " + labels.position(position);
         return board.occupant(position)
                 .map(unit -> unit instanceof Army army
-                        ? labels.text("tooltip.army", tile, unit.owner(), army.size(), unit.gold())
+                        ? labels.text("tooltip.army", tile, unit.owner(), army.size(), army.level())
                         : labels.text("tooltip.unit", tile, unit.owner(), unit.gold()))
                 .orElse(tile);
     }

@@ -56,20 +56,22 @@ Players take turns in the order given; the first player rotates each round so no
 
 ## War game
 
-Each player starts with 35 warriors, 10 food and no gold, and each turn either deploys an army or does nothing.
+Each player starts with 35 soldiers in reserve, and each turn deploys an army, attacks with one, or does nothing.
 
-- An army holds 1 to 5 warriors, at most 3 on mountains and deserts.
-- On deployment, each neighbouring army (north, south, east, west) is compared with the new one:
-  - a **weaker enemy** is halved; if it drops below one warrior it rallies to the deploying player, who earns 2 gold on
-    the deployed army;
-  - a **weaker ally** gains one warrior (within its tile's limit) and the deployed army earns 1 gold;
-  - an army at least as strong is left alone.
-- Against enemies, an army on a mountain counts two extra warriors.
-- After harvesting, wheat turns into 5 food and wood into 1; rock and sand are worth nothing. Each army then eats its
-  size in food, twice that in the desert. An army that cannot be fed is destroyed, its tile freed, and its owner gets
-  1 gold.
-- **Score:** player gold + army gold + a bonus per army by terrain (plain 1, forest 2, mountain and desert 4), plus 5 for
-  holding at least 10 territories.
+- An army holds 1 to 5 soldiers, on any land tile. Its **power** is its soldiers plus its level; a new army is level 0.
+- An army can attack an enemy within its range that it out-powers: the enemy is destroyed, its tile freed, and the
+  attacker gains a level (at most 3). Only attacks that win are allowed.
+- Range is counted in orthogonal steps and ignores ocean and armies in between:
+
+  | Terrain  | Range | Trait                                        |
+  |----------|------:|----------------------------------------------|
+  | Plain    | 1     | —                                            |
+  | Forest   | 1     | cover: can only be attacked from a neighbour |
+  | Desert   | 2     | exposed: defends with 1 power less           |
+  | Mountain | 3     | —                                            |
+
+- There is no food and no gold: tiles produce nothing in this game.
+- **Score:** 1 point per tile held.
 
 ## Farming game
 
@@ -104,8 +106,8 @@ A turn runs as: the `Decider` picks one of the actions the rules allow → the r
 land is left → harvest → upkeep. Every change is published as a `GameEvent`; the console and the Swing window only
 listen to events and never drive the rules.
 
-Territories are never stored separately: they are derived from the board, so a capture or a removal can't leave a
-player, a unit and a tile disagreeing.
+Territories are never stored separately: they are derived from the board, so a removal can't leave a player, a unit
+and a tile disagreeing.
 
 ### Adding a game
 
@@ -128,7 +130,6 @@ move the touched tiles flash in the same colours, and a starved army or dismisse
 
 Where the rules are ambiguous, the engine chooses:
 
-- a rallied enemy army keeps its size;
-- the mountain bonus applies to both armies in an enemy confrontation, never between allies;
-- harvested wheat and wood are always converted to food before feeding armies;
+- an equal power is not enough to attack;
+- an army never moves: it attacks from the tile it was deployed on;
 - a farming player's score ignores the gold they hold themselves.
