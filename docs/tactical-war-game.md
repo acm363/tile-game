@@ -1,0 +1,112 @@
+# Tactical war game — design notes
+
+Working notes to continue the design discussion. **Nothing below is implemented yet**; work happens on
+`feat/tactical-war-game`, branched from `main` at `a159840`.
+
+## Already on `main`
+
+| Commit    | Change                                                                                |
+|-----------|---------------------------------------------------------------------------------------|
+| `f1b9d59` | Tests structured as `// Given.` / `// When.` / `// Then.`                             |
+| `ed953eb` | FR/EN selector in the Swing window (`messages_<lang>.properties`), console stays FR   |
+| `d7cc7b9` | Closing the window stops auto-play and lets the JVM exit                              |
+| `b615c1e` | Human players: `--human <name>` (needs `--gui`), click highlighted tiles, Pass / Sell |
+| `11ffa46` | Hover preview: ghost army, red/gold/green marks from `GameRules.preview`              |
+| `a159840` | Flash on touched tiles, falling-sand crumble when an army starves or a worker leaves  |
+
+## Goal
+
+Make the war game a **tactical positioning and levelling game**: players choose where to place soldiers
+depending on terrain, distance and army level — later also weapon type and weapon level. Rules must stay easy
+for a new player. The farming game is out of scope for now.
+
+## Current war rules (to be replaced)
+
+Deploy 1–5 of 35 warriors; mountains/deserts hold at most 3. A deployment confronts its 4 neighbours: weaker
+enemies are halved or rally (+2 gold), smaller allies gain +1 (+1 gold); mountains give +2 strength. Upkeep turns
+wheat/wood into food, armies eat their size (double in desert), starving armies die (+1 gold). Score: gold + army
+gold + terrain bonus + 5 for 10 tiles. Considered too complex for new players.
+
+## Proposed rules (draft)
+
+1. **Start**: 35 soldiers in reserve per player. No food, no gold.
+2. **Turn** — one action: **deploy** 1–5 soldiers on a free land tile, **attack** with one of your armies, or
+   **pass**.
+3. **Power** = soldiers + level. A new army is level 0.
+4. **Attack**: target an enemy within your army's range that you out-power. It is destroyed, its tile freed, and
+   your army gains +1 level (max 3).
+5. **Terrain**, distance counted in orthogonal steps:
+
+   | Terrain  | Range | Trait                                         |
+   |----------|-------|-----------------------------------------------|
+   | Plain    | 1     | open ground, no modifier                      |
+   | Forest   | 1     | cover: can only be attacked from a neighbour  |
+   | Desert   | 2     | exposed: −1 power when defending              |
+   | Mountain | 3     | none — the range is its strength              |
+
+6. **End**: board full or 10 rounds. **Score**: 1 point per tile held.
+
+Example: 5 soldiers on a mountain destroy a 3-soldier army on a plain 3 tiles away, but not one in a forest.
+
+### Open rule decisions
+
+| # | Question                     | Recommended                                   | Alternative                 |
+|---|------------------------------|-----------------------------------------------|-----------------------------|
+| 1 | When fights happen           | Attack is a separate action                   | Auto-fire on deploy         |
+| 2 | Effect of a won attack       | Enemy destroyed                               | Enemy captured (as today)   |
+| 3 | Which attacks are legal      | Only winnable ones (highlighted = beatable)   | Failed attacks with a cost  |
+| 4 | Levelling                    | +1 level per kill, max 3                      | No levels yet               |
+| 5 | Line of sight                | Ignored for now (shoot over sea and armies)   | Blocked by terrain/armies   |
+
+### Structural notes
+
+- One place computes **power** and one computes **range**: weapon type/level plug in there later (a rifle could
+  set range instead of terrain).
+- Engine gains a second action, *Attack(from, target)*; the farming game is untouched.
+- UI: select own army → beatable targets light up → click; preview and animations are reused.
+- Tests first: which attacks are legal (range, cover, power comparison) — everything else depends on it.
+- Biggest risk: **balance** (range 3 covers up to 24 tiles of a 10×10 board). Check with many seeded games
+  played by a greedy bot, not the random one.
+- No one-way door: the old rules stay in git history.
+
+## Board tile distribution (draft)
+
+**Today** (`BoardGenerator`): land count random in [2, ⅓ of the board] — 2 to 33 tiles on 10×10 — placed as
+scattered pairs of adjacent tiles; each land tile is plain/forest/desert/mountain with 25% each, no clustering.
+
+**Proposal**:
+
+| Aspect   | Proposal                                                                       |
+|----------|--------------------------------------------------------------------------------|
+| Land     | Fixed share ≈ 40% of the board (≈ 40 tiles on 10×10), never 2                  |
+| Shape    | 1–2 connected islands (noise + island mask, see the Vagabond map article)      |
+| Mountain | **Drawn per game, uniformly between 10% and 15% of land** (from the seed)      |
+| Others   | Remaining land split plain : forest : desert = 40 : 25 : 20                    |
+| Grouping | Mountains in ridges, forests in patches, plains fill the rest                  |
+| Fairness | Mirrored board for 2 players (to decide)                                       |
+
+Resulting share of land tiles:
+
+| Mountain drawn | Plain | Forest | Desert | On 40 land tiles (M / P / F / D) |
+|----------------|-------|--------|--------|----------------------------------|
+| 10%            | 42.4% | 26.5%  | 21.2%  | 4 / 17 / 11 / 8                  |
+| 15%            | 40.0% | 25.0%  | 20.0%  | 6 / 16 / 10 / 8                  |
+
+### Open board decisions
+
+1. Land share: fixed ≈ 40%, or a range?
+2. Plain : forest : desert ratio 40 : 25 : 20 — OK?
+3. Mirrored boards for fairness — structural: changes the generator and how starting sides are defined.
+
+## Backlog after the rules
+
+1. Greedy bot using `GameRules.preview` (also needed to test balance).
+2. Always generate and show the seed; record actions to replay any game.
+3. UX: announce the turn before the click, end-of-game dialog, 1–5 keyboard shortcuts for size.
+4. Network play (later; turn-based → TCP, authoritative server, exchange seed + actions).
+
+## Conventions
+
+- Commits: concise, never an AI co-author trailer; never push without approval.
+- Tests: JUnit 5, `// Given.` / `// When.` / `// Then.` markers only — no other comments in code.
+- Verify GUI changes on the real display (screenshots via a throwaway script in the scratchpad).
