@@ -7,7 +7,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 record LaunchOptions(GameKind kind, List<String> playerNames, List<String> humanNames, int rows, int cols,
-                     OptionalInt rounds, OptionalLong seed, boolean gui) {
+                     OptionalInt rounds, OptionalLong seed, boolean gui, OptionalInt simulate) {
 
     static final int DEFAULT_SIZE = 10;
     static final String USAGE = """
@@ -17,7 +17,8 @@ record LaunchOptions(GameKind kind, List<String> playerNames, List<String> human
               --rows <n>       nombre de lignes du plateau (défaut 10)
               --cols <n>       nombre de colonnes du plateau (défaut 10)
               --rounds <n>     nombre de tours (défaut : 10 pour guerre, 6 pour agricole)
-              --seed <n>       graine aléatoire, pour rejouer une partie à l'identique""";
+              --seed <n>       graine aléatoire, pour rejouer une partie à l'identique
+              --simulate <n>   joue n graines entre bots, depuis chaque place, et affiche le bilan""";
 
     static LaunchOptions parse(String[] args) {
         if (args.length == 0) {
@@ -32,6 +33,7 @@ record LaunchOptions(GameKind kind, List<String> playerNames, List<String> human
         OptionalInt rounds = OptionalInt.empty();
         OptionalLong seed = OptionalLong.empty();
         boolean gui = false;
+        OptionalInt simulate = OptionalInt.empty();
         for (int index = 1; index < args.length; index++) {
             String arg = args[index];
             switch (arg) {
@@ -41,6 +43,7 @@ record LaunchOptions(GameKind kind, List<String> playerNames, List<String> human
                 case "--cols" -> cols = positiveInt(arg, value(args, ++index, arg));
                 case "--rounds" -> rounds = OptionalInt.of(positiveInt(arg, value(args, ++index, arg)));
                 case "--seed" -> seed = OptionalLong.of(parseLong(arg, value(args, ++index, arg)));
+                case "--simulate" -> simulate = OptionalInt.of(positiveInt(arg, value(args, ++index, arg)));
                 default -> {
                     if (arg.startsWith("--")) {
                         throw new IllegalArgumentException("Option inconnue : " + arg);
@@ -60,7 +63,11 @@ record LaunchOptions(GameKind kind, List<String> playerNames, List<String> human
         if (!humans.isEmpty() && !gui) {
             throw new IllegalArgumentException("--human requiert --gui");
         }
-        return new LaunchOptions(kind, List.copyOf(names), List.copyOf(humans), rows, cols, rounds, seed, gui);
+        if (simulate.isPresent() && gui) {
+            throw new IllegalArgumentException("--simulate ne s'affiche pas dans la fenêtre");
+        }
+        return new LaunchOptions(kind, List.copyOf(names), List.copyOf(humans), rows, cols, rounds, seed, gui,
+                simulate);
     }
 
     private static String value(String[] args, int index, String option) {

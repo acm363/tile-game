@@ -48,10 +48,17 @@ army level — later also weapon type and weapon level. The rules must stay easy
 
 ## Open questions
 
-1. **Balance** — the biggest risk: a mountain's range 3 covers up to 24 tiles of a 10×10 board. To be measured over
+1. **Scoring is degenerate** — blocks every balance measure. A deployment adds one tile to its player, a won attack
+   removes one from the opponent: every action is worth exactly one tile of lead. With equal turns and no pass, games
+   tie — 99.7% of 2,000 simulated games (`--simulate 1000`, greedy bots). Komi would hand the win to the second seat.
+   The score must reward something that differs between actions: power held, terrain value, or kills.
+2. **Double turns** — the rotating first player gives each player two turns in a row at every round boundary. 79% of
+   simulated kills land on such a second turn: deploy a threat, then attack before the victim can react. A threatened
+   army has no answer anyway — it cannot move or be reinforced.
+3. **Balance** — the biggest risk: a mountain's range 3 covers up to 24 tiles of a 10×10 board. To be measured over
    many seeded games played by a greedy bot, not the random one. Levers: mountain range, desert exposure, max level,
    number of rounds.
-2. **End condition** — attacks free tiles, so "board full" may rarely end a game; the balance runs will tell whether
+4. **End condition** — attacks free tiles, so "board full" may rarely end a game; the balance runs will tell whether
    10 rounds is the real end.
-3. **Weapons** — type and level, not designed yet; line of sight (decision 5) is revisited with them.
-4. **Deploy hint** — show, before deploying, which enemies the new army could reach and beat.
+5. **Weapons** — type and level, not designed yet; line of sight (decision 5) is revisited with them.
+6. **Deploy hint** — show, before deploying, which enemies the new army could reach and beat.

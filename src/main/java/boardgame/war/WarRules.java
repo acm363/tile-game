@@ -126,12 +126,12 @@ public final class WarRules implements GameRules {
                 && power(attacker) > defence(defender, board.terrain(target));
     }
 
-    private static boolean reaches(Position from, Position target, Board board) {
+    static boolean reaches(Position from, Position target, Board board) {
         int distance = from.distanceTo(target);
         return distance <= range(board.terrain(from)) && (board.terrain(target) != Terrain.FOREST || distance == 1);
     }
 
-    private static int range(Terrain terrain) {
+    static int range(Terrain terrain) {
         return switch (terrain) {
             case PLAIN, FOREST -> 1;
             case DESERT -> 2;
@@ -140,11 +140,11 @@ public final class WarRules implements GameRules {
         };
     }
 
-    private static int power(Army army) {
+    static int power(Army army) {
         return army.size() + army.level();
     }
 
-    private static int defence(Army army, Terrain terrain) {
+    static int defence(Army army, Terrain terrain) {
         return power(army) - (terrain == Terrain.DESERT ? DESERT_EXPOSURE : 0);
     }
 

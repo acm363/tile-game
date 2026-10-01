@@ -6,7 +6,8 @@ then pays upkeep for their characters.
 
 The goal is a model that makes adding a new game cheap: the board, players, turn loop and events are shared, and a game
 only defines its own rules. Two games are included — a war game and a farming game — playable in the console or in a
-Swing window. Players are bots making random moves, unless named with `--human` to be played with the mouse.
+Swing window. Players are bots — greedy in the war game, random in the farming game — unless named with `--human` to be played
+with the mouse.
 
 ## Requirements
 
@@ -40,6 +41,7 @@ The first argument picks the game (`guerre` for war, `agricole` for farming), th
 | `--cols <n>`   | board columns (default 10)                                     |
 | `--rounds <n>` | number of rounds (default 10 for war, 6 for farming)           |
 | `--seed <n>`   | random seed, to replay the exact same game                     |
+| `--simulate <n>` | plays seeds n times from every seat between bots, prints the balance report |
 
 In the Swing window, **Tour suivant** / **Next turn** plays one turn and **Lecture auto** / **Auto play** plays the game
 at a steady pace. Hovering a tile shows its terrain, owner, size and gold. A selector next to the buttons switches the

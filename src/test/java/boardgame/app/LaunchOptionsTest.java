@@ -72,6 +72,23 @@ class LaunchOptionsTest {
     }
 
     @Test
+    void aSimulationNamesHowManySeedsToPlayFromTheGivenSeed() {
+        // When.
+        LaunchOptions options = LaunchOptions.parse(new String[]{"guerre", "A", "B", "--simulate", "500", "--seed", "3"});
+
+        // Then.
+        assertEquals(OptionalInt.of(500), options.simulate());
+        assertEquals(OptionalLong.of(3), options.seed());
+    }
+
+    @Test
+    void aSimulationIsNotShownInTheWindow() {
+        // Then.
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[]{"guerre", "A", "B", "--simulate", "5", "--gui"}));
+    }
+
+    @Test
     void humansCanOnlyPlayInTheWindow() {
         // Then.
         assertThrows(IllegalArgumentException.class,
