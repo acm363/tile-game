@@ -15,9 +15,13 @@ import boardgame.player.Player;
 import boardgame.unit.Army;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class WarRules implements GameRules {
 
@@ -66,32 +70,41 @@ public final class WarRules implements GameRules {
     }
 
     @Override
+    public boolean simultaneous() {
+        return true;
+    }
+
+    @Override
     public void apply(Action action, Player player, GameContext context) {
-        switch (action) {
-            case Deploy deploy -> deploy(player, deploy.position(), deploy.size(), context);
-            case Attack attack -> attack(player, attack, context);
-            case Pass pass -> context.emit(new Passed(player, 0));
-            default -> throw new IllegalArgumentException("Unsupported action in the war game: " + action);
-        }
+        resolve(Map.of(player, action), context);
     }
 
-    private void deploy(Player player, Position position, int size, GameContext context) {
+    @Override
+    public void resolve(Map<Player, Action> orders, GameContext context) {
         Board board = context.board();
-        if (size > soldiers(player)) {
-            throw new IllegalArgumentException(player + " cannot deploy " + size + " soldiers out of " + soldiers(player));
-        }
-        board.place(position, new Army(player, size));
-        soldiers.merge(player, -size, Integer::sum);
-        context.emit(new ArmyDeployed(player, position, board.terrain(position), size));
-    }
-
-    private void attack(Player player, Attack attack, GameContext context) {
-        Board board = context.board();
-        if (!canAttack(player, attack.from(), attack.target(), board)) {
-            throw new IllegalArgumentException(player + " cannot win an attack on " + attack.target()
-                    + " from " + attack.from());
-        }
-        for (GameEvent consequence : consequences(player, attack, board)) {
+        orders.forEach((player, action) -> {
+            if (!(action instanceof Deploy || action instanceof Attack || action instanceof Pass)) {
+                throw new IllegalArgumentException("Unsupported action in the war game: " + action);
+            }
+            if (!legalActions(player, board).contains(action)) {
+                throw new IllegalArgumentException(player + " cannot " + action);
+            }
+        });
+        Map<Player, Attack> attacks = new LinkedHashMap<>();
+        Map<Position, List<Player>> claims = new LinkedHashMap<>();
+        Map<Player, Deploy> deploys = new HashMap<>();
+        orders.forEach((player, action) -> {
+            switch (action) {
+                case Attack attack -> attacks.put(player, attack);
+                case Deploy deploy -> {
+                    claims.computeIfAbsent(deploy.position(), position -> new ArrayList<>()).add(player);
+                    deploys.put(player, deploy);
+                }
+                default -> {
+                }
+            }
+        });
+        for (GameEvent consequence : volley(attacks, board)) {
             switch (consequence) {
                 case ArmyDestroyed destroyed -> board.remove(destroyed.target());
                 case ArmyPromoted promoted -> armyAt(board, promoted.position()).promote();
@@ -99,23 +112,55 @@ public final class WarRules implements GameRules {
             }
             context.emit(consequence);
         }
+        claims.forEach((position, players) -> {
+            players.forEach(player -> soldiers.merge(player, -deploys.get(player).size(), Integer::sum));
+            if (players.size() == 1) {
+                deploy(players.getFirst(), position, deploys.get(players.getFirst()).size(), context);
+                return;
+            }
+            context.emit(new DeploymentsClashed(position, List.copyOf(players)));
+            List<Player> bySize = players.stream()
+                    .sorted(Comparator.comparingInt((Player player) -> deploys.get(player).size()).reversed()).toList();
+            int survivors = deploys.get(bySize.get(0)).size() - deploys.get(bySize.get(1)).size();
+            if (survivors > 0) {
+                deploy(bySize.getFirst(), position, survivors, context);
+            }
+        });
+        orders.forEach((player, action) -> {
+            if (action instanceof Pass) {
+                context.emit(new Passed(player, 0));
+            }
+        });
+    }
+
+    private static void deploy(Player player, Position position, int size, GameContext context) {
+        Board board = context.board();
+        board.place(position, new Army(player, size));
+        context.emit(new ArmyDeployed(player, position, board.terrain(position), size));
     }
 
     @Override
     public List<GameEvent> preview(Action action, Player player, Board board) {
         return action instanceof Attack attack && canAttack(player, attack.from(), attack.target(), board)
-                ? consequences(player, attack, board)
+                ? volley(Map.of(player, attack), board)
                 : List.of();
     }
 
-    private static List<GameEvent> consequences(Player player, Attack attack, Board board) {
-        Army attacker = armyAt(board, attack.from());
-        Army defender = armyAt(board, attack.target());
-        List<GameEvent> consequences = new ArrayList<>();
-        consequences.add(new ArmyDestroyed(player, attack.from(), defender.owner(), attack.target(), defender.size()));
-        if (attacker.level() < Army.MAX_LEVEL) {
-            consequences.add(new ArmyPromoted(player, attack.from(), attacker.level() + 1));
-        }
+    private static List<GameEvent> volley(Map<Player, Attack> attacks, Board board) {
+        Set<Position> targets = attacks.values().stream().map(Attack::target).collect(Collectors.toSet());
+        Map<Position, GameEvent> destroyed = new LinkedHashMap<>();
+        List<GameEvent> promoted = new ArrayList<>();
+        attacks.forEach((player, attack) -> {
+            Army attacker = armyAt(board, attack.from());
+            Army defender = armyAt(board, attack.target());
+            destroyed.putIfAbsent(attack.target(),
+                    new ArmyDestroyed(player, attack.from(), defender.owner(), attack.target(), defender.size()));
+            if (!targets.contains(attack.from()) && attacker.level() < Army.MAX_LEVEL) {
+                promoted.add(new ArmyPromoted(player, attack.from(), attacker.level() + 1));
+            }
+        });
+        List<GameEvent> consequences = new ArrayList<>(destroyed.values());
+        consequences.addAll(promoted);
         return consequences;
     }
 
@@ -162,7 +207,7 @@ public final class WarRules implements GameRules {
 
     @Override
     public int score(Player player, Board board) {
-        return board.territoriesOf(player).size();
+        return board.territoriesOf(player).stream().mapToInt(position -> power(armyAt(board, position))).sum();
     }
 
     @Override

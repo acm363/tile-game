@@ -4,6 +4,7 @@ import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
 import boardgame.board.Resource;
+import boardgame.board.Terrain;
 import boardgame.engine.Action;
 import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
@@ -16,6 +17,7 @@ import boardgame.unit.Army;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +57,13 @@ class WarRulesTest {
             army.promote();
         }
         return army;
+    }
+
+    private static Map<Player, Action> orders(Player first, Action firstOrder, Player second, Action secondOrder) {
+        Map<Player, Action> orders = new LinkedHashMap<>();
+        orders.put(first, firstOrder);
+        orders.put(second, secondOrder);
+        return orders;
     }
 
     private Army deploy(GameContext context, Player player, int size, Position position) {
@@ -351,16 +360,98 @@ class WarRulesTest {
     }
 
     @Test
-    void eachTileHeldScoresOnePoint() {
+    void theScoreIsThePowerOfTheArmiesHeld() {
         // Given.
-        GameContext context = on(Boards.parse("PMPF"));
+        GameContext context = on(Boards.parse("PMDF"));
         put(context, alice, 1, LEFT);
         put(context, alice, 5, 3, RIGHT);
         put(context, bob, 5, new Position(0, 2));
 
         // Then.
-        assertEquals(2, rules.score(alice, context.board()));
-        assertEquals(1, rules.score(bob, context.board()));
+        assertEquals(9, rules.score(alice, context.board()));
+        assertEquals(5, rules.score(bob, context.board()));
+    }
+
+    @Test
+    void ordersAreResolvedTogetherSoAnArmyDestroyedThisRoundStillHitsItsTarget() {
+        // Given.
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, bob, 2, LEFT);
+        put(context, alice, 3, RIGHT);
+        Army survivor = put(context, bob, 5, new Position(0, 2));
+
+        // When.
+        rules.resolve(orders(alice, new Attack(RIGHT, LEFT), bob, new Attack(new Position(0, 2), RIGHT)), context);
+
+        // Then.
+        assertEquals(List.of(new ArmyDestroyed(alice, RIGHT, bob, LEFT, 2),
+                new ArmyDestroyed(bob, new Position(0, 2), alice, RIGHT, 3),
+                new ArmyPromoted(bob, new Position(0, 2), 1)), events);
+        assertTrue(context.board().isFree(LEFT));
+        assertTrue(context.board().isFree(RIGHT));
+        assertEquals(1, survivor.level());
+    }
+
+    @Test
+    void armiesDeployedOnTheSameTileFightAndTheBiggerOneKeepsItWithWhatIsLeft() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+
+        // When.
+        rules.resolve(orders(alice, new Deploy(LEFT, 3), bob, new Deploy(LEFT, 1)), context);
+
+        // Then.
+        assertEquals(List.of(new DeploymentsClashed(LEFT, List.of(alice, bob)),
+                new ArmyDeployed(alice, LEFT, Terrain.PLAIN, 2)), events);
+        assertEquals(2, ((Army) context.board().occupant(LEFT).orElseThrow()).size());
+        assertEquals(32, rules.soldiers(alice));
+        assertEquals(34, rules.soldiers(bob));
+    }
+
+    @Test
+    void armiesOfTheSameSizeDeployedOnTheSameTileDestroyEachOther() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+
+        // When.
+        rules.resolve(orders(alice, new Deploy(LEFT, 2), bob, new Deploy(LEFT, 2)), context);
+
+        // Then.
+        assertEquals(List.of(new DeploymentsClashed(LEFT, List.of(alice, bob))), events);
+        assertTrue(context.board().isFree(LEFT));
+        assertEquals(33, rules.soldiers(alice));
+        assertEquals(33, rules.soldiers(bob));
+    }
+
+    @Test
+    void twoArmiesOrderedAgainstTheSameTargetDestroyItOnceAndBothLevelUp() {
+        // Given.
+        Player carol = new Player("Carol");
+        rules.setUp(carol);
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 2, RIGHT);
+        put(context, carol, 3, new Position(0, 2));
+
+        // When.
+        rules.resolve(orders(alice, new Attack(LEFT, RIGHT), carol, new Attack(new Position(0, 2), RIGHT)), context);
+
+        // Then.
+        assertEquals(List.of(new ArmyDestroyed(alice, LEFT, bob, RIGHT, 2), new ArmyPromoted(alice, LEFT, 1),
+                new ArmyPromoted(carol, new Position(0, 2), 1)), events);
+    }
+
+    @Test
+    void anIllegalOrderRejectsTheWholeRoundAndChangesNothing() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 3, RIGHT);
+
+        // Then.
+        assertThrows(IllegalArgumentException.class,
+                () -> rules.resolve(orders(alice, new Pass(), bob, new Attack(RIGHT, LEFT)), context));
+        assertTrue(events.isEmpty());
     }
 
     @Test

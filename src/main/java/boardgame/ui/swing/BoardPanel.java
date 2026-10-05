@@ -14,6 +14,7 @@ import boardgame.unit.Unit;
 import boardgame.war.ArmyDeployed;
 import boardgame.war.ArmyDestroyed;
 import boardgame.war.ArmyPromoted;
+import boardgame.war.DeploymentsClashed;
 
 import javax.swing.JPanel;
 import javax.swing.Timer;
@@ -102,6 +103,7 @@ final class BoardPanel extends JPanel {
                 animations.crumble(e.target(), colors.of(e.defender()));
             }
             case ArmyPromoted e -> animations.flash(e.position(), GOLD);
+            case DeploymentsClashed e -> animations.flash(e.position(), RED);
             case WorkerDismissed e -> animations.crumble(e.position(), colors.of(e.owner()));
             default -> {
                 return;

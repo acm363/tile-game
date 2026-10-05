@@ -3,12 +3,12 @@ package boardgame.app;
 import boardgame.board.Board;
 import boardgame.board.BoardGenerator;
 import boardgame.board.Terrain;
+import boardgame.engine.Decider;
 import boardgame.engine.EndReason;
 import boardgame.engine.Game;
 import boardgame.engine.GameEvent;
 import boardgame.engine.GameResult;
 import boardgame.engine.GameRules;
-import boardgame.engine.TurnStarted;
 import boardgame.player.Player;
 import boardgame.ui.Labels;
 import boardgame.war.ArmyDestroyed;
@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -49,11 +50,16 @@ final class Simulation {
     }
 
     private void play(long seed, int shift, Tally tally) {
-        List<Player> seats = new ArrayList<>(names.stream().map(Player::new).toList());
+        List<Player> players = names.stream().map(Player::new).toList();
+        List<Player> seats = new ArrayList<>(players);
         Collections.rotate(seats, shift);
         Board board = new BoardGenerator(new Random(seed)).generate(rows, cols);
         GameRules rules = kind.newRules();
-        Game game = new Game(rules, board, seats, rounds, kind.newBot(rules, board, rounds, new Random(seed)));
+        Map<Player, Decider> bots = new HashMap<>();
+        for (int index = 0; index < players.size(); index++) {
+            bots.put(players.get(index), kind.newBot(rules, board, rounds, new Random(seed * players.size() + index)));
+        }
+        Game game = new Game(rules, board, seats, rounds, (player, actions) -> bots.get(player).choose(player, actions));
         game.addListener(event -> tally.record(event, board));
         tally.record(game.play(), seats, board);
     }
@@ -67,29 +73,15 @@ final class Simulation {
         private int roundsPlayed;
         private int landTiles;
         private int attacks;
-        private int doubleTurnAttacks;
-        private Player lastTurn;
-        private boolean doubleTurn;
 
         Tally(int seats) {
             seatWins = new int[seats];
         }
 
         void record(GameEvent event, Board board) {
-            switch (event) {
-                case TurnStarted started -> {
-                    doubleTurn = started.player() == lastTurn;
-                    lastTurn = started.player();
-                }
-                case ArmyDestroyed destroyed -> {
-                    attacks++;
-                    killsByTerrain.merge(board.terrain(destroyed.from()), 1, Integer::sum);
-                    if (doubleTurn) {
-                        doubleTurnAttacks++;
-                    }
-                }
-                default -> {
-                }
+            if (event instanceof ArmyDestroyed destroyed) {
+                attacks++;
+                killsByTerrain.merge(board.terrain(destroyed.from()), 1, Integer::sum);
             }
         }
 
@@ -102,29 +94,32 @@ final class Simulation {
             roundsPlayed += result.roundsPlayed();
             endReasons.merge(result.reason(), 1, Integer::sum);
             landTiles += (int) board.positions().stream().filter(position -> board.terrain(position).isLand()).count();
-            lastTurn = null;
         }
 
         Report report(int seeds) {
             return new Report(seeds, Arrays.stream(seatWins).boxed().toList(), ties, roundsPlayed, landTiles,
                     Collections.unmodifiableMap(new EnumMap<>(endReasons)),
-                    Collections.unmodifiableMap(new EnumMap<>(killsByTerrain)), attacks, doubleTurnAttacks);
+                    Collections.unmodifiableMap(new EnumMap<>(killsByTerrain)), attacks);
         }
     }
 
     record Report(int seeds, List<Integer> seatWins, int ties, int roundsPlayed, int landTiles,
-                  Map<EndReason, Integer> endReasons, Map<Terrain, Integer> killsByTerrain, int attacks,
-                  int doubleTurnAttacks) {
+                  Map<EndReason, Integer> endReasons, Map<Terrain, Integer> killsByTerrain, int attacks) {
 
         int games() {
             return seeds * seatWins.size();
+        }
+
+        double seatScore(int seat) {
+            return percent(2 * seatWins.get(seat) + ties, 2 * games());
         }
 
         List<String> describe(Labels labels) {
             List<String> lines = new ArrayList<>();
             lines.add(labels.text("simulation.header", games(), seeds, seatWins.size()));
             for (int seat = 0; seat < seatWins.size(); seat++) {
-                lines.add(labels.text("simulation.seat", seat + 1, seatWins.get(seat), percent(seatWins.get(seat), games())));
+                lines.add(labels.text("simulation.seat", seat + 1, seatWins.get(seat), percent(seatWins.get(seat), games()),
+                        seatScore(seat)));
             }
             lines.add(labels.text("simulation.ties", ties, percent(ties, games())));
             lines.add(labels.text("simulation.rounds", (double) roundsPlayed / games()));
@@ -136,7 +131,6 @@ final class Simulation {
                         .map(entry -> labels.text("simulation.share", labels.terrain(entry.getKey()),
                                 percent(entry.getValue(), attacks)))
                         .collect(Collectors.joining(", "))));
-                lines.add(labels.text("simulation.doubleTurn", doubleTurnAttacks, attacks));
             }
             return lines;
         }

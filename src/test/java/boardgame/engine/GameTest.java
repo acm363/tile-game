@@ -121,6 +121,31 @@ class GameTest {
     }
 
     @Test
+    void inASimultaneousGameEveryoneChoosesOnTheSameBoardBeforeTheOrdersAreRevealed() {
+        // Given.
+        List<Integer> freeTilesSeen = new ArrayList<>();
+        Decider deployOnOwnSide = (player, actions) -> {
+            freeTilesSeen.add((int) actions.stream().filter(Deploy.class::isInstance).count());
+            return new Deploy(new Position(0, player == alice ? 0 : 2), 1);
+        };
+        Game game = new Game(new WarRules(), Boards.parse("PPP~~~"), List.of(alice, bob), 1, deployOnOwnSide);
+        game.addListener(events::add);
+
+        // When.
+        game.playTurn();
+        int armiesAfterTheFirstOrder = game.board().territoriesOf(alice).size();
+        game.playTurn();
+
+        // Then.
+        assertEquals(List.of(15, 15), freeTilesSeen);
+        assertEquals(0, armiesAfterTheFirstOrder);
+        assertEquals(List.of(new RoundStarted(1), new TurnStarted(alice), new TurnStarted(bob), new OrdersRevealed(1)),
+                events.subList(0, 4));
+        assertEquals(1, game.board().territoriesOf(alice).size());
+        assertEquals(1, game.board().territoriesOf(bob).size());
+    }
+
+    @Test
     void onlyThePlayerWhoseTurnItIsHarvests() {
         // Given.
         Board board = Boards.parse("PPP~~~~~~");

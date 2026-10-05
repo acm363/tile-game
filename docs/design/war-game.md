@@ -12,6 +12,8 @@ army level — later also weapon type and weapon level. The rules must stay easy
 
 - **Turn:** one action — deploy 1–5 soldiers from a reserve of 35 on a free land tile, attack with one army, or pass.
   No economy: tiles produce nothing.
+- **Orders are simultaneous:** everyone chooses on the board as the round began; all orders resolve together at the
+  end of the round. Attacks fire together; armies deployed on the same tile fight, the bigger keeps the difference.
 - **Power** = soldiers + level (0 to 3). Defending in the desert costs 1 power.
 - **Range** depends on the attacker's tile, counted in orthogonal steps:
 
@@ -24,7 +26,7 @@ army level — later also weapon type and weapon level. The rules must stay easy
 
 - **Attack:** legal only against an enemy in range that the attacker out-powers. The target is destroyed, its tile
   freed, and the attacker gains a level.
-- **End:** board full or 10 rounds. **Score:** 1 point per tile held.
+- **End:** board full or 10 rounds. **Score:** total power of the armies on the board (soldiers + levels).
 
 ## Decisions
 
@@ -38,6 +40,9 @@ army level — later also weapon type and weapon level. The rules must stay easy
 | 6 | Size cap per terrain     | None                              | 3 on mountains and deserts   | the mountain's strength is its range             |
 | 7 | Equal power              | Not enough to attack              | Ties go to the attacker      | "out-power" is strict                            |
 | 8 | Movement                 | Armies never move                 | Moving armies                | positioning is the deployment choice             |
+| 9 | Score                    | Power held (soldiers + levels)    | Tiles held; tiles + 2 a kill | tiles tie 99.7%; power counts levels and size    |
+| 10 | Turn order              | Simultaneous orders               | Rotation, alternation, komi  | seat no longer matters, for any pair of players  |
+| 11 | Same-tile deployments   | Fight: bigger keeps the excess    | Both bounce; bigger only     | only rule where unlike styles are even (50/50)   |
 
 ## Extension points
 
@@ -48,17 +53,30 @@ army level — later also weapon type and weapon level. The rules must stay easy
 
 ## Open questions
 
-1. **Scoring is degenerate** — blocks every balance measure. A deployment adds one tile to its player, a won attack
-   removes one from the opponent: every action is worth exactly one tile of lead. With equal turns and no pass, games
-   tie — 99.7% of 2,000 simulated games (`--simulate 1000`, greedy bots). Komi would hand the win to the second seat.
-   The score must reward something that differs between actions: power held, terrain value, or kills.
-2. **Double turns** — the rotating first player gives each player two turns in a row at every round boundary. 79% of
-   simulated kills land on such a second turn: deploy a threat, then attack before the victim can react. A threatened
-   army has no answer anyway — it cannot move or be reinforced.
-3. **Balance** — the biggest risk: a mountain's range 3 covers up to 24 tiles of a 10×10 board. To be measured over
-   many seeded games played by a greedy bot, not the random one. Levers: mountain range, desert exposure, max level,
-   number of rounds.
-4. **End condition** — attacks free tiles, so "board full" may rarely end a game; the balance runs will tell whether
-   10 rounds is the real end.
-5. **Weapons** — type and level, not designed yet; line of sight (decision 5) is revisited with them.
-6. **Deploy hint** — show, before deploying, which enemies the new army could reach and beat.
+1. **Draws between identical bots** — two greedy bots draw 17–19% of games, two "always deploy 5 on the longest
+   range" bots 71%: same strategy, same board, same choices. Unlike pairings draw 0–7%. Seat-neutral tie-breakers
+   (kills, tiles, terrain value) split at most a fifth of the mirror draws; only chance or seat order could split the
+   rest. Balance is therefore measured with a draw counting as half a win.
+2. **Balance** — the biggest risk: a mountain's range 3 covers up to 24 tiles of a 10×10 board. Between greedy bots
+   on the current generator, attackers on deserts make 69% of kills and mountains 22% — to measure again on the target
+   board. Levers: mountain range, desert exposure, max level, number of rounds.
+3. **End condition** — every simulated game reaches round 10: attacks and clashes free tiles faster than the board
+   fills.
+4. **Weapons** — type and level, not designed yet; line of sight (decision 5) is revisited with them.
+5. **Deploy hint** — show, before deploying, which enemies the new army could reach and beat.
+
+## Seat balance (2026-10-05)
+
+Each seed played from both seats, 10 rounds, 500 seeds for rotation and 1,000 for simultaneous orders; "seat 1 / seat 2"
+are win rates in %, draws are the rest. "Aggressive" attacks whenever it can, else deploys 5 on the longest range.
+
+| Turn order                    | greedy × greedy  | greedy × random | greedy × aggressive | random × random | aggressive × aggressive |
+|-------------------------------|------------------|-----------------|---------------------|-----------------|-------------------------|
+| Rotating first player         | 40 / 60          | 50 / 50         | 48 / 49             | 47 / 48         | 49 / 44                 |
+| Rotation, seat 1 +11.5 points | 52 / 49          | 51 / 49         | 77 / 23             | 93 / 8          | 64 / 37                 |
+| Simultaneous (decision 10)    | 41 / 41, 19 draw | 50 / 50         | 47 / 47             | 47 / 47         | 15 / 15, 71 draw        |
+| Simultaneous, +11.5 points    | 83 / 17          | 51 / 49         | 89 / 11             | 93 / 7          | 91 / 9                  |
+
+A points handicap is tuned to one pairing and breaks the others; simultaneous orders give both seats exactly the same
+results in every pairing, which `SeatFairnessTest` checks by swapping seats. Plain alternation was worse than rotation
+(seat 2: 73%). With fighting clashes, greedy beats the aggressive style 50% of the time (12% when clashes bounced).

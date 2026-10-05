@@ -19,6 +19,14 @@ public interface GameRules {
 
     void apply(Action action, Player player, GameContext context);
 
+    default boolean simultaneous() {
+        return false;
+    }
+
+    default void resolve(Map<Player, Action> orders, GameContext context) {
+        orders.forEach((player, action) -> apply(action, player, context));
+    }
+
     void upkeep(Player player, GameContext context);
 
     int score(Player player, Board board);

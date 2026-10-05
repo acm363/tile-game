@@ -38,7 +38,27 @@ class SimulationTest {
         // Then.
         assertTrue(report.attacks() > 0);
         assertEquals(report.attacks(), report.killsByTerrain().values().stream().mapToInt(Integer::intValue).sum());
-        assertTrue(report.doubleTurnAttacks() <= report.attacks());
+    }
+
+    @Test
+    void eachSeatScoresBetween45And55PercentCountingADrawAsHalfAWin() {
+        // When.
+        Simulation.Report report = simulation.run(1, 1000);
+
+        // Then.
+        for (int seat = 0; seat < report.seatWins().size(); seat++) {
+            double score = report.seatScore(seat);
+            assertTrue(score >= 45 && score <= 55, "seat " + (seat + 1) + " scores " + score + "%");
+        }
+    }
+
+    @Test
+    void swappedSeatsGiveBothSeatsTheSameNumberOfWins() {
+        // When.
+        Simulation.Report report = simulation.run(1, 200);
+
+        // Then.
+        assertEquals(report.seatWins().get(0), report.seatWins().get(1));
     }
 
     @Test

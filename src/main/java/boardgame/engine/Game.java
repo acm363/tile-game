@@ -15,6 +15,7 @@ public final class Game {
     private final GameContext context;
     private final Decider decider;
     private final int rounds;
+    private final Map<Player, Action> orders = new LinkedHashMap<>();
     private int round = 1;
     private int turnIndex;
     private GameResult result;
@@ -85,13 +86,20 @@ public final class Game {
         if (!legalActions.contains(action)) {
             throw new IllegalStateException(player + " chose an illegal action: " + action);
         }
-        rules.apply(action, player, context);
-        if (board().freePositions().isEmpty()) {
-            end(EndReason.NO_TERRITORY_LEFT);
-            return;
+        if (rules.simultaneous()) {
+            orders.put(player, action);
+            if (turnIndex == context.players().size() - 1 && !resolveOrders()) {
+                return;
+            }
+        } else {
+            rules.apply(action, player, context);
+            if (board().freePositions().isEmpty()) {
+                end(EndReason.NO_TERRITORY_LEFT);
+                return;
+            }
+            rules.harvest(player, context);
+            rules.upkeep(player, context);
         }
-        rules.harvest(player, context);
-        rules.upkeep(player, context);
 
         turnIndex++;
         if (turnIndex == context.players().size()) {
@@ -102,6 +110,22 @@ public final class Game {
                 round++;
             }
         }
+    }
+
+    private boolean resolveOrders() {
+        context.emit(new OrdersRevealed(round));
+        rules.resolve(Collections.unmodifiableMap(new LinkedHashMap<>(orders)), context);
+        List<Player> players = List.copyOf(orders.keySet());
+        orders.clear();
+        if (board().freePositions().isEmpty()) {
+            end(EndReason.NO_TERRITORY_LEFT);
+            return false;
+        }
+        for (Player player : players) {
+            rules.harvest(player, context);
+            rules.upkeep(player, context);
+        }
+        return true;
     }
 
     private void requireNotOver() {

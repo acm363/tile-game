@@ -41,7 +41,7 @@ The first argument picks the game (`guerre` for war, `agricole` for farming), th
 | `--cols <n>`   | board columns (default 10)                                     |
 | `--rounds <n>` | number of rounds (default 10 for war, 6 for farming)           |
 | `--seed <n>`   | random seed, to replay the exact same game                     |
-| `--simulate <n>` | plays seeds n times from every seat between bots, prints the balance report |
+| `--simulate <n>` | plays n seeds from every seat between bots, prints the balance report     |
 
 In the Swing window, **Tour suivant** / **Next turn** plays one turn and **Lecture auto** / **Auto play** plays the game
 at a steady pace. Hovering a tile shows its terrain, owner, size and gold. A selector next to the buttons switches the
@@ -60,6 +60,9 @@ Players take turns in the order given; the first player rotates each round so no
 
 Each player starts with 35 soldiers in reserve, and each turn deploys an army, attacks with one, or does nothing.
 
+Orders are **simultaneous**: every player chooses on the board as the round began, without seeing the others' choices,
+and all orders are revealed and resolved together at the end of the round. Turn order therefore gives no advantage.
+
 - An army holds 1 to 5 soldiers, on any land tile. Its **power** is its soldiers plus its level; a new army is level 0.
 - An army can attack an enemy within its range that it out-powers: the enemy is destroyed, its tile freed, and the
   attacker gains a level (at most 3). Only attacks that win are allowed.
@@ -72,8 +75,11 @@ Each player starts with 35 soldiers in reserve, and each turn deploys an army, a
   | Desert   | 2     | exposed: defends with 1 power less           |
   | Mountain | 3     | —                                            |
 
+- Attacks fire together: an army destroyed this round still destroys its own target, but does not level up.
+- Armies deployed on the same tile fight at once: the bigger one keeps the tile with the difference of soldiers, the
+  smaller one is lost; armies of the same size destroy each other.
 - There is no food and no gold: tiles produce nothing in this game.
-- **Score:** 1 point per tile held.
+- **Score:** the total power of the armies still on the board — soldiers plus levels.
 
 ## Farming game
 
@@ -105,7 +111,8 @@ Each player starts with 15 gold. Each turn they deploy a worker, sell resources,
 | `boardgame.app`         | command-line launcher                                                               |
 
 A turn runs as: the `Decider` picks one of the actions the rules allow → the rules apply it → the game stops if no free
-land is left → harvest → upkeep. Every change is published as a `GameEvent`; the console and the Swing window only
+land is left → harvest → upkeep. Rules that answer `simultaneous()` (the war game) instead collect every player's choice
+over the round, made on the same board, and `resolve` them together once the last player has chosen. Every change is published as a `GameEvent`; the console and the Swing window only
 listen to events and never drive the rules.
 
 Territories are never stored separately: they are derived from the board, so a removal can't leave a player, a unit
@@ -121,7 +128,9 @@ per territory comes for free and can be overridden. Emit your own `GameEvent` re
 
 `HumanDecider` returns the action submitted by the window. Everything runs on the Swing thread: on a human's turn the
 window asks `Game` for the upcoming player's legal actions and only calls `playTurn()` once a move is clicked. Bots keep
-playing through **Next turn** and **Auto play**, which wait whenever a human is to move.
+playing through **Next turn** and **Auto play**, which wait whenever a human is to move. In the war game a click only
+gives the order: the board changes once every player has chosen, so two humans can share the window without seeing
+each other's move.
 
 - **Deploy:** tiles where the selected size can go are outlined in white; hovering one shows a ghost of the army.
 - **Attack:** armies with a winnable attack are outlined in red. Clicking one selects it (gold) and outlines its targets
