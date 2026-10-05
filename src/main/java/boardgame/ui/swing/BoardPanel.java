@@ -109,10 +109,24 @@ final class BoardPanel extends JPanel {
                 return;
             }
         }
-        if (!animationTimer.isRunning()) {
+        if (isDisplayable() && !animationTimer.isRunning()) {
             animationTimer.start();
         }
         repaint();
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        if (animations.isRunning()) {
+            animationTimer.start();
+        }
+    }
+
+    @Override
+    public void removeNotify() {
+        animationTimer.stop();
+        super.removeNotify();
     }
 
     boolean isAnimating() {

@@ -214,6 +214,21 @@ class BoardPanelTest {
     }
 
     @Test
+    void aPanelThatIsNotOnScreenOnlyAnimatesWhenTicked() throws InterruptedException {
+        // Given.
+        panel.animate(new ArmyDestroyed(alice, new Position(1, 1), alice, new Position(0, 1), 3));
+
+        // When.
+        Thread.sleep(200);
+        for (int frame = 0; frame < TileAnimations.CRUMBLE_FRAMES - 1; frame++) {
+            panel.tickAnimations();
+        }
+
+        // Then.
+        assertTrue(panel.isAnimating());
+    }
+
+    @Test
     void eventsWithoutAVisualEffectDoNotAnimate() {
         // When.
         panel.animate(new Passed(alice, 0));
