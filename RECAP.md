@@ -1,6 +1,6 @@
 # Recap — tactical war game (to resume on another machine)
 
-Not committed on purpose: design lives in `docs/design/`, this file is only the hand-over. Delete it once resumed.
+Hand-over only: the design lives in `docs/design/`. Delete this file once work has resumed.
 
 ## Where things are
 
