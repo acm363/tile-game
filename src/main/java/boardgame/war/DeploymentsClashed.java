@@ -4,5 +4,7 @@ import boardgame.board.Position;
 import boardgame.engine.GameEvent;
 import boardgame.player.Player;
 
-public record ArmyStarved(Player owner, Position position, int size) implements GameEvent {
+import java.util.List;
+
+public record DeploymentsClashed(Position position, List<Player> players) implements GameEvent {
 }

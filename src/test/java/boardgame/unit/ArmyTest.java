@@ -6,7 +6,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ArmyTest {
@@ -21,13 +20,21 @@ class ArmyTest {
     }
 
     @Test
-    void resizingOutsideTheLimitsIsRejectedAndKeepsTheSize() {
+    void anArmyStartsAtLevelZeroAndRisesToThreeAtMost() {
         // Given.
         Army army = new Army(alice, 3);
+        int initial = army.level();
+
+        // When.
+        for (int promotion = 0; promotion < Army.MAX_LEVEL; promotion++) {
+            army.promote();
+        }
 
         // Then.
-        assertThrows(IllegalArgumentException.class, () -> army.setSize(0));
-        assertEquals(3, army.size());
+        assertEquals(0, initial);
+        assertEquals(3, army.level());
+        assertThrows(IllegalStateException.class, army::promote);
+        assertEquals(3, army.level());
     }
 
     @Test
@@ -49,22 +56,8 @@ class ArmyTest {
     }
 
     @Test
-    void aUnitCanChangeSides() {
-        // Given.
-        Player bob = new Player("Bob");
-        Army army = new Army(alice, 2);
-
-        // When.
-        army.changeOwner(bob);
-
-        // Then.
-        assertSame(bob, army.owner());
-    }
-
-    @Test
     void aUnitAlwaysHasAnOwner() {
         // Then.
         assertThrows(NullPointerException.class, () -> new Worker(null));
-        assertThrows(NullPointerException.class, () -> new Worker(alice).changeOwner(null));
     }
 }

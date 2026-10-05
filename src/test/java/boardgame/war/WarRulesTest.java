@@ -4,7 +4,9 @@ import boardgame.board.Board;
 import boardgame.board.Boards;
 import boardgame.board.Position;
 import boardgame.board.Resource;
+import boardgame.board.Terrain;
 import boardgame.engine.Action;
+import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
 import boardgame.engine.Exchange;
 import boardgame.engine.GameContext;
@@ -15,10 +17,13 @@ import boardgame.unit.Army;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,343 +51,458 @@ class WarRulesTest {
         return army;
     }
 
+    private Army put(GameContext context, Player owner, int size, int level, Position position) {
+        Army army = put(context, owner, size, position);
+        for (int promotion = 0; promotion < level; promotion++) {
+            army.promote();
+        }
+        return army;
+    }
+
+    private static Map<Player, Action> orders(Player first, Action firstOrder, Player second, Action secondOrder) {
+        Map<Player, Action> orders = new LinkedHashMap<>();
+        orders.put(first, firstOrder);
+        orders.put(second, secondOrder);
+        return orders;
+    }
+
     private Army deploy(GameContext context, Player player, int size, Position position) {
         rules.apply(new Deploy(position, size), player, context);
         return (Army) context.board().occupant(position).orElseThrow();
     }
 
-    @Test
-    void playersStartWith35WarriorsTenFoodAndNoGold() {
-        on(Boards.parse("PP~~~~"));
+    private List<Attack> attacks(GameContext context, Player player) {
+        return rules.legalActions(player, context.board()).stream()
+                .filter(Attack.class::isInstance).map(Attack.class::cast).toList();
+    }
 
-        assertEquals(35, rules.warriors(alice));
-        assertEquals(10, rules.food(alice));
+    private Set<Position> targetsFrom(GameContext context, Position from) {
+        return attacks(context, alice).stream()
+                .filter(attack -> attack.from().equals(from)).map(Attack::target).collect(Collectors.toSet());
+    }
+
+    @Test
+    void anArmyOnAPlainOnlyReachesItsNeighbours() {
+        // Given.
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 1, RIGHT);
+        put(context, bob, 1, new Position(0, 2));
+
+        // Then.
+        assertEquals(Set.of(RIGHT), targetsFrom(context, LEFT));
+    }
+
+    @Test
+    void anArmyInTheDesertReachesTwoTiles() {
+        // Given.
+        GameContext context = on(Boards.parse("DPPP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 1, new Position(0, 2));
+        put(context, bob, 1, new Position(0, 3));
+
+        // Then.
+        assertEquals(Set.of(new Position(0, 2)), targetsFrom(context, LEFT));
+    }
+
+    @Test
+    void anArmyOnAMountainReachesThreeTiles() {
+        // Given.
+        GameContext context = on(Boards.parse("MPPPP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 1, new Position(0, 3));
+        put(context, bob, 1, new Position(0, 4));
+
+        // Then.
+        assertEquals(Set.of(new Position(0, 3)), targetsFrom(context, LEFT));
+    }
+
+    @Test
+    void distanceCountsOrthogonalStepsSoADiagonalIsTwoTilesAway() {
+        // Given.
+        GameContext onPlain = on(Boards.parse("PP", "PP"));
+        put(onPlain, alice, 3, LEFT);
+        put(onPlain, bob, 1, new Position(1, 1));
+        GameContext inDesert = on(Boards.parse("DP", "PP"));
+        put(inDesert, alice, 3, LEFT);
+        put(inDesert, bob, 1, new Position(1, 1));
+
+        // Then.
+        assertEquals(Set.of(), targetsFrom(onPlain, LEFT));
+        assertEquals(Set.of(new Position(1, 1)), targetsFrom(inDesert, LEFT));
+    }
+
+    @Test
+    void anArmyInAForestCanOnlyBeAttackedFromANeighbour() {
+        // Given.
+        GameContext context = on(Boards.parse("MPPF"));
+        put(context, alice, 5, LEFT);
+        put(context, alice, 2, new Position(0, 2));
+        put(context, bob, 1, new Position(0, 3));
+
+        // Then.
+        assertEquals(List.of(new Attack(new Position(0, 2), new Position(0, 3))), attacks(context, alice));
+    }
+
+    @Test
+    void fiveSoldiersOnAMountainDestroyThreeOnAPlainThreeTilesAwayButNotInAForest() {
+        // Given.
+        GameContext context = on(Boards.parse("MPPP", "~~F~"));
+        put(context, alice, 5, LEFT);
+        put(context, bob, 3, new Position(0, 3));
+        put(context, bob, 3, new Position(1, 2));
+
+        // Then.
+        assertEquals(Set.of(new Position(0, 3)), targetsFrom(context, LEFT));
+    }
+
+    @Test
+    void anEqualPowerIsNotEnoughToAttack() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 3, RIGHT);
+
+        // Then.
+        assertEquals(List.of(), attacks(context, alice));
+    }
+
+    @Test
+    void anArmyInTheDesertDefendsWithOnePowerLess() {
+        // Given.
+        GameContext context = on(Boards.parse("PD"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 3, RIGHT);
+
+        // Then.
+        assertEquals(List.of(new Attack(LEFT, RIGHT)), attacks(context, alice));
+    }
+
+    @Test
+    void levelsAddToPowerWhenAttackingAndWhenDefending() {
+        // Given.
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, alice, 3, 1, new Position(0, 1));
+        put(context, bob, 3, LEFT);
+        put(context, bob, 3, 1, new Position(0, 2));
+
+        // Then.
+        assertEquals(Set.of(LEFT), targetsFrom(context, new Position(0, 1)));
+    }
+
+    @Test
+    void alliesAreNeverTargets() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 5, LEFT);
+        put(context, alice, 1, RIGHT);
+
+        // Then.
+        assertEquals(List.of(), attacks(context, alice));
+    }
+
+    @Test
+    void attacksReachOverOceanAndOtherArmies() {
+        // Given.
+        GameContext context = on(Boards.parse("M~PP"));
+        put(context, alice, 5, LEFT);
+        put(context, bob, 1, new Position(0, 2));
+        put(context, bob, 1, new Position(0, 3));
+
+        // Then.
+        assertEquals(Set.of(new Position(0, 2), new Position(0, 3)), targetsFrom(context, LEFT));
+    }
+
+    @Test
+    void aWonAttackDestroysTheEnemyFreesItsTileAndPromotesTheAttacker() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        Army attacker = put(context, alice, 3, LEFT);
+        put(context, bob, 2, RIGHT);
+
+        // When.
+        rules.apply(new Attack(LEFT, RIGHT), alice, context);
+
+        // Then.
+        assertTrue(context.board().isFree(RIGHT));
+        assertEquals(1, attacker.level());
+        assertEquals(List.of(new ArmyDestroyed(alice, LEFT, bob, RIGHT, 2), new ArmyPromoted(alice, LEFT, 1)), events);
+    }
+
+    @Test
+    void anArmyStopsLevellingUpAtThree() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        Army attacker = put(context, alice, 1, Army.MAX_LEVEL, LEFT);
+        put(context, bob, 2, RIGHT);
+
+        // When.
+        rules.apply(new Attack(LEFT, RIGHT), alice, context);
+
+        // Then.
+        assertEquals(Army.MAX_LEVEL, attacker.level());
+        assertEquals(List.of(new ArmyDestroyed(alice, LEFT, bob, RIGHT, 2)), events);
+    }
+
+    @Test
+    void anAttackThatCannotBeWonIsRejectedAndChangesNothing() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 3, RIGHT);
+
+        // Then.
+        assertThrows(IllegalArgumentException.class, () -> rules.apply(new Attack(LEFT, RIGHT), alice, context));
+        assertEquals(List.of(RIGHT), context.board().territoriesOf(bob));
+        assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void playersStartWith35SoldiersAndNothingElse() {
+        // When.
+        on(Boards.parse("PP"));
+
+        // Then.
+        assertEquals(35, rules.soldiers(alice));
+        assertEquals(Map.of("soldiers", 35), rules.reserves(alice));
         assertEquals(0, alice.gold());
     }
 
     @Test
-    void deployingTakesWarriorsFromTheReserve() {
-        GameContext context = on(Boards.parse("PP~~~~"));
+    void deployingTakesSoldiersFromTheReserve() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
 
-        deploy(context, alice, 5, LEFT);
+        // When.
+        Army army = deploy(context, alice, 5, LEFT);
 
-        assertEquals(30, rules.warriors(alice));
+        // Then.
+        assertEquals(30, rules.soldiers(alice));
+        assertEquals(0, army.level());
+        assertEquals(List.of(new ArmyDeployed(alice, LEFT, context.board().terrain(LEFT), 5)), events);
     }
 
     @Test
-    void mountainsAndDesertsHoldAtMostThreeWarriors() {
-        GameContext context = on(Boards.parse("MDPF~~~~~~~~"));
+    void everyLandTileHoldsUpToFiveSoldiers() {
+        // Given.
+        GameContext context = on(Boards.parse("MDPF"));
 
+        // When.
         List<Action> actions = rules.legalActions(alice, context.board());
 
-        assertEquals(3, maxDeployableSize(actions, new Position(0, 0)));
-        assertEquals(3, maxDeployableSize(actions, new Position(0, 1)));
-        assertEquals(5, maxDeployableSize(actions, new Position(0, 2)));
-        assertEquals(5, maxDeployableSize(actions, new Position(0, 3)));
-        assertThrows(IllegalArgumentException.class, () -> deploy(context, alice, 4, new Position(0, 0)));
+        // Then.
+        for (int col = 0; col < 4; col++) {
+            assertEquals(5, maxDeployableSize(actions, new Position(0, col)));
+        }
     }
 
     @Test
-    void aPlayerWithoutWarriorsCanOnlyPass() {
-        GameContext context = on(Boards.parse("PPPPPPPP", "~~~~~~~~", "~~~~~~~~"));
+    void aDeploymentLeavesItsNeighboursUntouched() {
+        // Given.
+        GameContext context = on(Boards.parse("PPP"));
+        Army enemy = put(context, bob, 1, LEFT);
+        Army ally = put(context, alice, 1, new Position(0, 2));
+
+        // When.
+        deploy(context, alice, 5, RIGHT);
+
+        // Then.
+        assertEquals(List.of(LEFT), context.board().territoriesOf(bob));
+        assertEquals(1, enemy.size());
+        assertEquals(1, ally.size());
+        assertEquals(1, events.size());
+    }
+
+    @Test
+    void aPlayerWithoutSoldiersCanStillAttackOrPass() {
+        // Given.
+        GameContext context = on(Boards.parse("PPPPPPPP", "~~~~~~~~"));
         for (int col = 0; col < 7; col++) {
             deploy(context, alice, 5, new Position(0, col));
         }
+        put(context, bob, 1, new Position(0, 7));
 
-        assertEquals(List.of(new Pass()), rules.legalActions(alice, context.board()));
-    }
-
-    @Test
-    void aWeakerEnemyIsHalved() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army enemy = put(context, bob, 3, LEFT);
-
-        deploy(context, alice, 5, RIGHT);
-
-        assertEquals(1, enemy.size());
-        assertSame(bob, enemy.owner());
-        assertTrue(events.contains(new ArmyWeakened(bob, LEFT, 1)));
-    }
-
-    @Test
-    void anEnemyHalvedBelowOneWarriorRalliesAndEarnsTheDeployedArmyTwoGold() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army enemy = put(context, bob, 1, LEFT);
-
-        Army deployed = deploy(context, alice, 2, RIGHT);
-
-        assertSame(alice, enemy.owner());
-        assertEquals(1, enemy.size());
-        assertEquals(2, deployed.gold());
-        assertEquals(List.of(LEFT, RIGHT), context.board().territoriesOf(alice));
-    }
-
-    @Test
-    void anEnemyOnAMountainCountsTwoMoreWarriors() {
-        GameContext context = on(Boards.parse("MP~~~~"));
-        Army enemy = put(context, bob, 2, LEFT);
-
-        deploy(context, alice, 4, RIGHT);
-
-        assertEquals(2, enemy.size());
-    }
-
-    @Test
-    void anArmyDeployedOnAMountainCountsTwoMoreAgainstEnemies() {
-        GameContext context = on(Boards.parse("PM~~~~"));
-        Army enemy = put(context, bob, 4, LEFT);
-
-        deploy(context, alice, 3, RIGHT);
-
-        assertEquals(2, enemy.size());
-    }
-
-    @Test
-    void anEnemyAtLeastAsStrongIsUnaffected() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army enemy = put(context, bob, 3, LEFT);
-
-        Army deployed = deploy(context, alice, 3, RIGHT);
-
-        assertEquals(3, enemy.size());
-        assertEquals(0, deployed.gold());
-    }
-
-    @Test
-    void aWeakerAllyGainsOneWarriorAndEarnsTheDeployedArmyOneGold() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army ally = put(context, alice, 2, LEFT);
-
-        Army deployed = deploy(context, alice, 4, RIGHT);
-
-        assertEquals(3, ally.size());
-        assertEquals(1, deployed.gold());
-    }
-
-    @Test
-    void anAllyInTheDesertStaysCappedAtThreeWarriors() {
-        GameContext context = on(Boards.parse("DP~~~~"));
-        Army ally = put(context, alice, 3, LEFT);
-
-        deploy(context, alice, 5, RIGHT);
-
-        assertEquals(3, ally.size());
-    }
-
-    @Test
-    void theMountainBonusDoesNotApplyBetweenAllies() {
-        GameContext context = on(Boards.parse("MP~~~~"));
-        Army ally = put(context, alice, 2, LEFT);
-
-        deploy(context, alice, 3, RIGHT);
-
-        assertEquals(3, ally.size());
-    }
-
-    @Test
-    void anAllyAtLeastAsStrongIsUnaffected() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army ally = put(context, alice, 4, LEFT);
-
-        Army deployed = deploy(context, alice, 4, RIGHT);
-
-        assertEquals(4, ally.size());
-        assertEquals(0, deployed.gold());
-    }
-
-    @Test
-    void armiesEatTheirSizeAndTwiceItInTheDesert() {
-        GameContext context = on(Boards.parse("PD~~~~"));
-        put(context, alice, 3, LEFT);
-        put(context, alice, 2, RIGHT);
-
-        rules.upkeep(alice, context);
-
-        assertEquals(10 - 3 - 4, rules.food(alice));
-        assertEquals(2, context.board().territoriesOf(alice).size());
-    }
-
-    @Test
-    void anArmyWithExactlyEnoughFoodSurvives() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        put(context, alice, 5, LEFT);
-        put(context, alice, 5, RIGHT);
-
-        rules.upkeep(alice, context);
-
-        assertEquals(0, rules.food(alice));
-        assertEquals(2, context.board().territoriesOf(alice).size());
-    }
-
-    @Test
-    void aStarvingArmyIsDestroyedFreesItsTileAndPaysOneGold() {
-        GameContext context = on(Boards.parse("DP~~~~"));
-        put(context, alice, 3, LEFT);
-        put(context, alice, 5, RIGHT);
-
-        rules.upkeep(alice, context);
-
-        assertTrue(context.board().isFree(RIGHT));
-        assertEquals(List.of(LEFT), context.board().territoriesOf(alice));
-        assertEquals(1, alice.gold());
-        assertEquals(4, rules.food(alice));
-        assertTrue(events.contains(new ArmyStarved(alice, RIGHT, 5)));
-    }
-
-    @Test
-    void wheatAndWoodAreConvertedIntoFoodWhileRockAndSandAreWorthNothing() {
-        GameContext context = on(Boards.parse("PFMD~~~~~~~~"));
-        put(context, alice, 1, new Position(0, 0));
-        put(context, alice, 1, new Position(0, 1));
-        put(context, alice, 1, new Position(0, 2));
-        put(context, alice, 1, new Position(0, 3));
-
-        rules.harvest(alice, context);
-        rules.upkeep(alice, context);
-
-        assertEquals(10 + 5 + 1 - 1 - 1 - 1 - 2, rules.food(alice));
-        assertEquals(0, alice.resource(Resource.WHEAT));
-        assertEquals(0, alice.resource(Resource.WOOD));
-        assertEquals(1, alice.resource(Resource.ROCK));
-    }
-
-    @Test
-    void scoreAddsPlayerGoldArmyGoldAndTerrainBonuses() {
-        GameContext context = on(Boards.parse("PFMD~~~~~~~~"));
-        alice.addGold(3);
-        put(context, alice, 1, new Position(0, 0)).addGold(2);
-        put(context, alice, 1, new Position(0, 1));
-        put(context, alice, 1, new Position(0, 2));
-        put(context, alice, 1, new Position(0, 3));
-
-        assertEquals(3 + 2 + 1 + 2 + 4 + 4, rules.score(alice, context.board()));
-    }
-
-    @Test
-    void tenTerritoriesEarnFiveBonusPoints() {
-        GameContext context = on(Boards.parse("PPPPPPPPPP", "~~~~~~~~~~", "~~~~~~~~~~", "~~~~~~~~~~"));
-        for (int col = 0; col < 10; col++) {
-            put(context, alice, 1, new Position(0, col));
-        }
-
-        assertEquals(10 + 5, rules.score(alice, context.board()));
+        // Then.
+        assertEquals(List.of(new Pass(), new Attack(new Position(0, 6), new Position(0, 7))),
+                rules.legalActions(alice, context.board()));
     }
 
     @Test
     void onlyFreeLandTilesCanBeDeployedOn() {
-        GameContext context = on(Boards.parse("P~P~~~"));
+        // Given.
+        GameContext context = on(Boards.parse("P~P"));
         put(context, bob, 1, LEFT);
 
+        // When.
         List<Position> targets = rules.legalActions(alice, context.board()).stream()
                 .filter(Deploy.class::isInstance).map(action -> ((Deploy) action).position()).distinct().toList();
 
+        // Then.
         assertEquals(List.of(new Position(0, 2)), targets);
     }
 
     @Test
-    void aDeploymentConfrontsAllFourNeighbours() {
-        GameContext context = on(Boards.parse("~P~", "PPP", "~P~", "~~~", "~~~"));
-        Army north = put(context, bob, 2, new Position(0, 1));
-        Army west = put(context, bob, 1, new Position(1, 0));
-        Army east = put(context, alice, 1, new Position(1, 2));
-        Army south = put(context, bob, 5, new Position(2, 1));
+    void armiesNeitherHarvestNorEat() {
+        // Given.
+        GameContext context = on(Boards.parse("PFMD"));
+        for (int col = 0; col < 4; col++) {
+            put(context, alice, 5, new Position(0, col));
+        }
 
-        Army deployed = deploy(context, alice, 4, new Position(1, 1));
-
-        assertEquals(1, north.size());
-        assertSame(alice, west.owner());
-        assertEquals(2, east.size());
-        assertEquals(5, south.size());
-        assertEquals(2 + 1, deployed.gold());
-    }
-
-    @Test
-    void aRalliedArmyDoesNotTriggerAnotherConfrontation() {
-        GameContext context = on(Boards.parse("PPP~~~"));
-        Army rallied = put(context, bob, 1, new Position(0, 1));
-        Army beyond = put(context, alice, 1, new Position(0, 0));
-
-        deploy(context, alice, 2, new Position(0, 2));
-
-        assertSame(alice, rallied.owner());
-        assertEquals(1, beyond.size());
-    }
-
-    @Test
-    void nothingIsConvertedWhenNoFoodCropWasHarvested() {
-        GameContext context = on(Boards.parse("MP~~~~"));
-        put(context, alice, 1, LEFT);
-
+        // When.
         rules.harvest(alice, context);
         rules.upkeep(alice, context);
 
-        assertTrue(events.stream().noneMatch(FoodProduced.class::isInstance));
-        assertEquals(9, rules.food(alice));
+        // Then.
+        assertEquals(4, context.board().territoriesOf(alice).size());
+        assertTrue(alice.resources().isEmpty());
+        assertTrue(events.isEmpty());
     }
 
     @Test
-    void upkeepOnlyFeedsTheCurrentPlayersArmies() {
-        GameContext context = on(Boards.parse("PP~~~~"));
-        put(context, alice, 5, LEFT);
-        put(context, bob, 5, RIGHT);
-
-        rules.upkeep(alice, context);
-
-        assertEquals(5, rules.food(alice));
-        assertEquals(10, rules.food(bob));
-    }
-
-    @Test
-    void thePreviewAnnouncesExactlyWhatTheDeploymentWillDoToItsNeighbours() {
+    void theScoreIsThePowerOfTheArmiesHeld() {
         // Given.
-        GameContext context = on(Boards.parse("~P~", "PPP", "~P~", "~~~", "~~~"));
-        Army north = put(context, bob, 2, new Position(0, 1));
-        put(context, bob, 1, new Position(1, 0));
-        put(context, alice, 1, new Position(1, 2));
-        put(context, bob, 5, new Position(2, 1));
-        Deploy deploy = new Deploy(new Position(1, 1), 4);
-
-        // When.
-        List<GameEvent> preview = rules.preview(deploy, alice, context.board());
-        rules.apply(deploy, alice, context);
+        GameContext context = on(Boards.parse("PMDF"));
+        put(context, alice, 1, LEFT);
+        put(context, alice, 5, 3, RIGHT);
+        put(context, bob, 5, new Position(0, 2));
 
         // Then.
-        assertEquals(List.of(
-                new ArmyWeakened(bob, new Position(0, 1), 1),
-                new ArmyReinforced(alice, new Position(1, 2), 2),
-                new ArmyRallied(bob, alice, new Position(1, 0))), preview);
-        assertEquals(preview, events.subList(1, events.size()));
-        assertEquals(1, north.size());
+        assertEquals(9, rules.score(alice, context.board()));
+        assertEquals(5, rules.score(bob, context.board()));
     }
 
     @Test
-    void previewingLeavesTheBoardAndReservesUntouched() {
+    void ordersAreResolvedTogetherSoAnArmyDestroyedThisRoundStillHitsItsTarget() {
         // Given.
-        GameContext context = on(Boards.parse("PP~~~~"));
-        Army enemy = put(context, bob, 1, LEFT);
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, bob, 2, LEFT);
+        put(context, alice, 3, RIGHT);
+        Army survivor = put(context, bob, 5, new Position(0, 2));
 
         // When.
-        rules.preview(new Deploy(RIGHT, 2), alice, context.board());
+        rules.resolve(orders(alice, new Attack(RIGHT, LEFT), bob, new Attack(new Position(0, 2), RIGHT)), context);
 
         // Then.
+        assertEquals(List.of(new ArmyDestroyed(alice, RIGHT, bob, LEFT, 2),
+                new ArmyDestroyed(bob, new Position(0, 2), alice, RIGHT, 3),
+                new ArmyPromoted(bob, new Position(0, 2), 1)), events);
+        assertTrue(context.board().isFree(LEFT));
         assertTrue(context.board().isFree(RIGHT));
-        assertSame(bob, enemy.owner());
-        assertEquals(35, rules.warriors(alice));
+        assertEquals(1, survivor.level());
     }
 
     @Test
-    void onlyDeploymentsHaveAPreview() {
+    void armiesDeployedOnTheSameTileFightAndTheBiggerOneKeepsItWithWhatIsLeft() {
         // Given.
-        GameContext context = on(Boards.parse("PP~~~~"));
+        GameContext context = on(Boards.parse("PP"));
+
+        // When.
+        rules.resolve(orders(alice, new Deploy(LEFT, 3), bob, new Deploy(LEFT, 1)), context);
 
         // Then.
+        assertEquals(List.of(new DeploymentsClashed(LEFT, List.of(alice, bob)),
+                new ArmyDeployed(alice, LEFT, Terrain.PLAIN, 2)), events);
+        assertEquals(2, ((Army) context.board().occupant(LEFT).orElseThrow()).size());
+        assertEquals(32, rules.soldiers(alice));
+        assertEquals(34, rules.soldiers(bob));
+    }
+
+    @Test
+    void armiesOfTheSameSizeDeployedOnTheSameTileDestroyEachOther() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+
+        // When.
+        rules.resolve(orders(alice, new Deploy(LEFT, 2), bob, new Deploy(LEFT, 2)), context);
+
+        // Then.
+        assertEquals(List.of(new DeploymentsClashed(LEFT, List.of(alice, bob))), events);
+        assertTrue(context.board().isFree(LEFT));
+        assertEquals(33, rules.soldiers(alice));
+        assertEquals(33, rules.soldiers(bob));
+    }
+
+    @Test
+    void twoArmiesOrderedAgainstTheSameTargetDestroyItOnceAndBothLevelUp() {
+        // Given.
+        Player carol = new Player("Carol");
+        rules.setUp(carol);
+        GameContext context = on(Boards.parse("PPP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 2, RIGHT);
+        put(context, carol, 3, new Position(0, 2));
+
+        // When.
+        rules.resolve(orders(alice, new Attack(LEFT, RIGHT), carol, new Attack(new Position(0, 2), RIGHT)), context);
+
+        // Then.
+        assertEquals(List.of(new ArmyDestroyed(alice, LEFT, bob, RIGHT, 2), new ArmyPromoted(alice, LEFT, 1),
+                new ArmyPromoted(carol, new Position(0, 2), 1)), events);
+    }
+
+    @Test
+    void anIllegalOrderRejectsTheWholeRoundAndChangesNothing() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 3, RIGHT);
+
+        // Then.
+        assertThrows(IllegalArgumentException.class,
+                () -> rules.resolve(orders(alice, new Pass(), bob, new Attack(RIGHT, LEFT)), context));
+        assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void thePreviewOfAnAttackAnnouncesExactlyWhatItWillDo() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, alice, 3, LEFT);
+        put(context, bob, 2, RIGHT);
+        Attack attack = new Attack(LEFT, RIGHT);
+
+        // When.
+        List<GameEvent> preview = rules.preview(attack, alice, context.board());
+        rules.apply(attack, alice, context);
+
+        // Then.
+        assertEquals(List.of(new ArmyDestroyed(alice, LEFT, bob, RIGHT, 2), new ArmyPromoted(alice, LEFT, 1)), preview);
+        assertEquals(preview, events);
+    }
+
+    @Test
+    void previewingAnAttackLeavesTheBoardUntouched() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        Army attacker = put(context, alice, 3, LEFT);
+        put(context, bob, 2, RIGHT);
+
+        // When.
+        rules.preview(new Attack(LEFT, RIGHT), alice, context.board());
+
+        // Then.
+        assertEquals(List.of(RIGHT), context.board().territoriesOf(bob));
+        assertEquals(0, attacker.level());
+    }
+
+    @Test
+    void deploymentsAndPassesHaveNoPreview() {
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
+        put(context, bob, 1, LEFT);
+
+        // Then.
+        assertTrue(rules.preview(new Deploy(RIGHT, 5), alice, context.board()).isEmpty());
         assertTrue(rules.preview(new Pass(), alice, context.board()).isEmpty());
     }
 
     @Test
     void rulesRefuseActionsTheyDoNotKnow() {
-        GameContext context = on(Boards.parse("PP~~~~"));
+        // Given.
+        GameContext context = on(Boards.parse("PP"));
 
+        // Then.
         assertThrows(IllegalArgumentException.class,
                 () -> rules.apply(new Exchange(Resource.WOOD, 1), alice, context));
     }

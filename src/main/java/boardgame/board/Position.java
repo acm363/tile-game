@@ -11,4 +11,8 @@ public record Position(int row, int col) {
                 new Position(row, col + 1),
                 new Position(row, col - 1));
     }
+
+    public int distanceTo(Position other) {
+        return Math.abs(row - other.row) + Math.abs(col - other.col);
+    }
 }

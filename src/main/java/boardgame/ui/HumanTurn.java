@@ -2,6 +2,7 @@ package boardgame.ui;
 
 import boardgame.board.Position;
 import boardgame.engine.Action;
+import boardgame.engine.Attack;
 import boardgame.engine.Deploy;
 import boardgame.engine.Pass;
 
@@ -28,8 +29,19 @@ public final class HumanTurn {
     }
 
     public Optional<Deploy> deployAt(Position position, int size) {
-        Deploy deploy = new Deploy(position, size);
-        return legalActions.contains(deploy) ? Optional.of(deploy) : Optional.empty();
+        return legal(new Deploy(position, size));
+    }
+
+    public Set<Position> attackers() {
+        return attacks().map(Attack::from).collect(Collectors.toSet());
+    }
+
+    public Set<Position> attackTargets(Position from) {
+        return attacks().filter(attack -> attack.from().equals(from)).map(Attack::target).collect(Collectors.toSet());
+    }
+
+    public Optional<Attack> attack(Position from, Position target) {
+        return legal(new Attack(from, target));
     }
 
     public boolean canPass() {
@@ -37,10 +49,20 @@ public final class HumanTurn {
     }
 
     public List<Action> otherActions() {
-        return legalActions.stream().filter(action -> !(action instanceof Deploy) && !(action instanceof Pass)).toList();
+        return legalActions.stream()
+                .filter(action -> !(action instanceof Deploy) && !(action instanceof Attack) && !(action instanceof Pass))
+                .toList();
+    }
+
+    private <A extends Action> Optional<A> legal(A action) {
+        return legalActions.contains(action) ? Optional.of(action) : Optional.empty();
     }
 
     private Stream<Deploy> deploys() {
         return legalActions.stream().filter(Deploy.class::isInstance).map(Deploy.class::cast);
+    }
+
+    private Stream<Attack> attacks() {
+        return legalActions.stream().filter(Attack.class::isInstance).map(Attack.class::cast);
     }
 }

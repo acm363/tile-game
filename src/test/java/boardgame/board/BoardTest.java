@@ -43,20 +43,6 @@ class BoardTest {
     }
 
     @Test
-    void territoriesFollowTheOwnerWhenAUnitChangesSides() {
-        // Given.
-        Worker worker = new Worker(alice);
-        board.place(new Position(0, 0), worker);
-
-        // When.
-        worker.changeOwner(bob);
-
-        // Then.
-        assertTrue(board.territoriesOf(alice).isEmpty());
-        assertEquals(List.of(new Position(0, 0)), board.territoriesOf(bob));
-    }
-
-    @Test
     void removingAUnitFreesItsTile() {
         // Given.
         board.place(new Position(0, 0), new Worker(alice));

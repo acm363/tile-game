@@ -6,7 +6,8 @@ then pays upkeep for their characters.
 
 The goal is a model that makes adding a new game cheap: the board, players, turn loop and events are shared, and a game
 only defines its own rules. Two games are included — a war game and a farming game — playable in the console or in a
-Swing window. Players are bots making random moves, unless named with `--human` to be played with the mouse.
+Swing window. Players are bots — greedy in the war game, random in the farming game — unless named with `--human` to be played
+with the mouse.
 
 ## Requirements
 
@@ -40,6 +41,7 @@ The first argument picks the game (`guerre` for war, `agricole` for farming), th
 | `--cols <n>`   | board columns (default 10)                                     |
 | `--rounds <n>` | number of rounds (default 10 for war, 6 for farming)           |
 | `--seed <n>`   | random seed, to replay the exact same game                     |
+| `--simulate <n>` | plays n seeds from every seat between bots, prints the balance report     |
 
 In the Swing window, **Tour suivant** / **Next turn** plays one turn and **Lecture auto** / **Auto play** plays the game
 at a steady pace. Hovering a tile shows its terrain, owner, size and gold. A selector next to the buttons switches the
@@ -52,24 +54,32 @@ Tiles are ocean, mountain, plain, desert or forest; land tiles produce rock, whe
 generator guarantees that at least two thirds of the board is ocean and that every land tile touches another land tile.
 Characters only stand on land, one per tile.
 
-A game ends after its last round, or immediately — mid-turn — once no free land is left.
+Players take turns in the order given; the first player rotates each round so nobody always moves first. A game ends after its last round, or immediately — mid-turn — once no free land is left.
 
 ## War game
 
-Each player starts with 35 warriors, 10 food and no gold, and each turn either deploys an army or does nothing.
+Each player starts with 35 soldiers in reserve, and each turn deploys an army, attacks with one, or does nothing.
 
-- An army holds 1 to 5 warriors, at most 3 on mountains and deserts.
-- On deployment, each neighbouring army (north, south, east, west) is compared with the new one:
-  - a **weaker enemy** is halved; if it drops below one warrior it rallies to the deploying player, who earns 2 gold on
-    the deployed army;
-  - a **weaker ally** gains one warrior (within its tile's limit) and the deployed army earns 1 gold;
-  - an army at least as strong is left alone.
-- Against enemies, an army on a mountain counts two extra warriors.
-- After harvesting, wheat turns into 5 food and wood into 1; rock and sand are worth nothing. Each army then eats its
-  size in food, twice that in the desert. An army that cannot be fed is destroyed, its tile freed, and its owner gets
-  1 gold.
-- **Score:** player gold + army gold + a bonus per army by terrain (plain 1, forest 2, mountain and desert 4), plus 5 for
-  holding at least 10 territories.
+Orders are **simultaneous**: every player chooses on the board as the round began, without seeing the others' choices,
+and all orders are revealed and resolved together at the end of the round. Turn order therefore gives no advantage.
+
+- An army holds 1 to 5 soldiers, on any land tile. Its **power** is its soldiers plus its level; a new army is level 0.
+- An army can attack an enemy within its range that it out-powers: the enemy is destroyed, its tile freed, and the
+  attacker gains a level (at most 3). Only attacks that win are allowed.
+- Range is counted in orthogonal steps and ignores ocean and armies in between:
+
+  | Terrain  | Range | Trait                                        |
+  |----------|------:|----------------------------------------------|
+  | Plain    | 1     | —                                            |
+  | Forest   | 1     | cover: can only be attacked from a neighbour |
+  | Desert   | 2     | exposed: defends with 1 power less           |
+  | Mountain | 3     | —                                            |
+
+- Attacks fire together: an army destroyed this round still destroys its own target, but does not level up.
+- Armies deployed on the same tile fight at once: the bigger one keeps the tile with the difference of soldiers, the
+  smaller one is lost; armies of the same size destroy each other.
+- There is no food and no gold: tiles produce nothing in this game.
+- **Score:** the total power of the armies still on the board — soldiers plus levels.
 
 ## Farming game
 
@@ -101,11 +111,12 @@ Each player starts with 15 gold. Each turn they deploy a worker, sell resources,
 | `boardgame.app`         | command-line launcher                                                               |
 
 A turn runs as: the `Decider` picks one of the actions the rules allow → the rules apply it → the game stops if no free
-land is left → harvest → upkeep. Every change is published as a `GameEvent`; the console and the Swing window only
+land is left → harvest → upkeep. Rules that answer `simultaneous()` (the war game) instead collect every player's choice
+over the round, made on the same board, and `resolve` them together once the last player has chosen. Every change is published as a `GameEvent`; the console and the Swing window only
 listen to events and never drive the rules.
 
-Territories are never stored separately: they are derived from the board, so a capture or a removal can't leave a
-player, a unit and a tile disagreeing.
+Territories are never stored separately: they are derived from the board, so a removal can't leave a player, a unit
+and a tile disagreeing.
 
 ### Adding a game
 
@@ -116,19 +127,25 @@ per territory comes for free and can be overridden. Emit your own `GameEvent` re
 ### Human players
 
 `HumanDecider` returns the action submitted by the window. Everything runs on the Swing thread: on a human's turn the
-window asks `Game` for the upcoming player's legal actions, highlights the tiles where the selected army size can be
-deployed, and only calls `playTurn()` once a tile, **Pass** or **Sell** is clicked. Bots keep playing through
-**Next turn** and **Auto play**, which wait whenever a human is to move. Hovering a highlighted tile previews the move:
-a ghost of the army, and a mark on each neighbour it would weaken (red), rally (gold) or reinforce (green). The marks
-come from `GameRules.preview`, which the war rules compute with the same code that applies a deployment. After each
-move the touched tiles flash in the same colours, and a starved army or dismissed worker crumbles into a pile of sand
-(a small falling-sand automaton) before fading out.
+window asks `Game` for the upcoming player's legal actions and only calls `playTurn()` once a move is clicked. Bots keep
+playing through **Next turn** and **Auto play**, which wait whenever a human is to move. In the war game a click only
+gives the order: the board changes once every player has chosen, so two humans can share the window without seeing
+each other's move.
+
+- **Deploy:** tiles where the selected size can go are outlined in white; hovering one shows a ghost of the army.
+- **Attack:** armies with a winnable attack are outlined in red. Clicking one selects it (gold) and outlines its targets
+  in red; clicking a target attacks, clicking anywhere else cancels. Hovering a target marks it with a × and the
+  attacker with its next level.
+- **Pass** and **Sell** are buttons.
+
+The marks come from `GameRules.preview`, which the war rules compute with the same code that applies an attack. After
+each move the touched tiles flash, a promoted army flashes gold, and a destroyed army or dismissed worker crumbles into
+a pile of sand (a small falling-sand automaton) before fading out. An army's level shows as gold pips under its size.
 
 ## Rule interpretations
 
 Where the rules are ambiguous, the engine chooses:
 
-- a rallied enemy army keeps its size;
-- the mountain bonus applies to both armies in an enemy confrontation, never between allies;
-- harvested wheat and wood are always converted to food before feeding armies;
+- an equal power is not enough to attack;
+- an army never moves: it attacks from the tile it was deployed on;
 - a farming player's score ignores the gold they hold themselves.

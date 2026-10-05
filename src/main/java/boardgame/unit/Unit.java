@@ -6,7 +6,7 @@ import java.util.Objects;
 
 public abstract class Unit {
 
-    private Player owner;
+    private final Player owner;
     private int gold;
 
     protected Unit(Player owner) {
@@ -15,10 +15,6 @@ public abstract class Unit {
 
     public Player owner() {
         return owner;
-    }
-
-    public void changeOwner(Player newOwner) {
-        this.owner = Objects.requireNonNull(newOwner);
     }
 
     public int gold() {

@@ -5,9 +5,10 @@ import boardgame.board.BoardGenerator;
 import boardgame.engine.Decider;
 import boardgame.engine.Game;
 import boardgame.engine.GameRules;
-import boardgame.engine.RandomDecider;
 import boardgame.player.Player;
 import boardgame.ui.HumanDecider;
+import boardgame.ui.Labels;
+import boardgame.ui.Language;
 import boardgame.ui.console.ConsoleLog;
 import boardgame.ui.swing.GameWindow;
 
@@ -35,14 +36,23 @@ public final class Main {
             System.exit(2);
             return;
         }
+        if (options.simulate().isPresent()) {
+            int rounds = options.rounds().orElse(options.kind().newRules().defaultRounds());
+            Simulation simulation = new Simulation(options.kind(), options.playerNames(), options.rows(), options.cols(),
+                    rounds);
+            simulation.run(options.seed().orElse(1), options.simulate().getAsInt())
+                    .describe(new Labels(Language.FR)).forEach(System.out::println);
+            return;
+        }
         GameRules rules = options.kind().newRules();
+        int rounds = options.rounds().orElse(rules.defaultRounds());
         List<Player> players = options.playerNames().stream().map(Player::new).toList();
         HumanDecider human = new HumanDecider(players.stream()
                 .filter(player -> options.humanNames().contains(player.name()))
                 .collect(Collectors.toSet()));
-        Decider bot = new RandomDecider(random);
+        Decider bot = options.kind().newBot(rules, board, rounds, random);
         Decider decider = (player, actions) -> (human.controls(player) ? human : bot).choose(player, actions);
-        Game game = new Game(rules, board, players, options.rounds().orElse(rules.defaultRounds()), decider);
+        Game game = new Game(rules, board, players, rounds, decider);
 
         if (options.gui()) {
             SwingUtilities.invokeLater(() -> new GameWindow(options.kind().titleKey(), game, human).setVisible(true));
